@@ -39,13 +39,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Link>
           {user.role === "SUPER_ADMIN" && (
              <>
-               <Link href="/dashboard/organizations" className="text-sm text-gray-500 hover:text-black">
+               <Link href="/dashboard/organizations" className="text-sm font-medium text-gray-500 hover:text-black">
                  Organizations
                </Link>
-               <Link href="/dashboard/users" className="text-sm text-gray-500 hover:text-black">
+               <Link href="/dashboard/users" className="text-sm font-medium text-gray-500 hover:text-black">
                  Users
                </Link>
              </>
+          )}
+          {(user.role === "ORG_ADMIN" || user.role === "SUPER_ADMIN") && (
+            <>
+               <Link href="/dashboard/locations" className="text-sm font-medium text-gray-500 hover:text-black">
+                 Locations
+               </Link>
+               <Link href="/dashboard/departments" className="text-sm font-medium text-gray-500 hover:text-black">
+                 Departments
+               </Link>
+               <Link href="/dashboard/services" className="text-sm font-medium text-gray-500 hover:text-black">
+                 Services
+               </Link>
+               <Link href="/dashboard/practitioners" className="text-sm font-medium text-gray-500 hover:text-black">
+                 Practitioners
+               </Link>
+            </>
           )}
         </div>
         <div className="flex items-center space-x-4">
