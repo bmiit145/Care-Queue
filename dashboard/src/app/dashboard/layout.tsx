@@ -63,6 +63,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                </Link>
             </>
           )}
+          <div className="h-6 border-l border-gray-300 mx-2"></div>
+          <Link href="/dashboard/patients" className="text-sm font-medium text-gray-500 hover:text-black">
+            Patients
+          </Link>
+          <Link href="/dashboard/appointments" className="text-sm font-medium text-gray-500 hover:text-black">
+            Appointments
+          </Link>
+          <Link href="/dashboard/queues" className="text-sm font-medium text-gray-500 hover:text-black">
+            Queues
+          </Link>
+          <Link href="/dashboard/encounters" className="text-sm font-medium text-gray-500 hover:text-black">
+            Encounters
+          </Link>
+          <div className="h-6 border-l border-gray-300 mx-2"></div>
+          <Link href="/dashboard/analytics" className="text-sm font-medium text-gray-500 hover:text-black">
+            Analytics
+          </Link>
         </div>
         <div className="flex items-center space-x-4">
           <span className="text-sm font-medium">
