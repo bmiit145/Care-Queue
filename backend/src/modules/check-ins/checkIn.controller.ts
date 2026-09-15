@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { CheckIn } from './checkIn.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
+import { Appointment } from '../appointments/appointment.model';
 
 /**
  * POST /api/check-ins
@@ -26,6 +27,13 @@ export const createCheckIn = async (req: AuthRequest, res: Response): Promise<vo
       checkInTime:   new Date(),
       status:        'COMPLETED',
     });
+
+    if (appointmentId) {
+      await Appointment.findOneAndUpdate(
+        { _id: appointmentId, organizationId: req.user!.organizationId },
+        { status: 'CHECKED_IN' }
+      );
+    }
 
     res.status(201).json(checkIn);
   } catch (error) {

@@ -42,8 +42,8 @@ const router = Router();
  *         description: Queue created
  */
 router.route('/')
-  .get(protect, authorize('SUPER_ADMIN', 'ORG_ADMIN', 'PRACTITIONER', 'RECEPTIONIST', 'PATIENT'), getQueues)
-  .post(protect, authorize('SUPER_ADMIN', 'ORG_ADMIN', 'RECEPTIONIST'), createQueue);
+  .get(protect, authorize('PLATFORM_ADMIN', 'ORG_ADMIN', 'PRACTITIONER', 'RECEPTIONIST', 'PATIENT'), getQueues)
+  .post(protect, authorize('PLATFORM_ADMIN', 'ORG_ADMIN', 'RECEPTIONIST'), createQueue);
 
 /**
  * @swagger
@@ -74,7 +74,7 @@ router.route('/')
  *       201:
  *         description: Successfully joined the queue
  */
-router.post('/join', protect, authorize('SUPER_ADMIN', 'ORG_ADMIN', 'RECEPTIONIST', 'PATIENT'), joinQueue);
+router.post('/join', protect, authorize('PLATFORM_ADMIN', 'ORG_ADMIN', 'RECEPTIONIST', 'PATIENT'), joinQueue);
 
 /**
  * @swagger
@@ -106,6 +106,6 @@ router.post('/join', protect, authorize('SUPER_ADMIN', 'ORG_ADMIN', 'RECEPTIONIS
  *       200:
  *         description: Queue entry updated
  */
-router.put('/entry/:entryId', protect, authorize('SUPER_ADMIN', 'ORG_ADMIN', 'PRACTITIONER', 'RECEPTIONIST'), updateQueueEntryStatus);
+router.put('/entry/:entryId', protect, authorize('PLATFORM_ADMIN', 'ORG_ADMIN', 'PRACTITIONER', 'RECEPTIONIST'), updateQueueEntryStatus);
 
 export default router;

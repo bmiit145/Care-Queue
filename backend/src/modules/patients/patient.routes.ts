@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerPatient, getMyPatientProfile, getPatientById } from './patient.controller';
+import { registerPatient, getPatients, getPatientById } from './patient.controller';
 import { protect, authorize } from '../../shared/middlewares/auth.middleware';
 
 const router = Router();
@@ -8,7 +8,7 @@ const router = Router();
  * @swagger
  * /patients:
  *   post:
- *     summary: Register a patient profile for the authenticated user
+ *     summary: Register a patient profile
  *     tags: [Patients]
  *     security:
  *       - bearerAuth: []
@@ -21,54 +21,52 @@ const router = Router();
  *             required:
  *               - firstName
  *               - lastName
- *               - dateOfBirth
- *               - gender
+ *               - mobileNumber
  *             properties:
  *               firstName:
  *                 type: string
  *               lastName:
+ *                 type: string
+ *               mobileNumber:
  *                 type: string
  *               dateOfBirth:
  *                 type: string
  *                 format: date
  *               gender:
  *                 type: string
- *                 enum: [MALE, FEMALE, OTHER]
- *               contactPhone:
+ *                 enum: [MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY]
+ *               email:
  *                 type: string
- *               contactEmail:
+ *               address:
+ *                 type: string
+ *               emergencyContact:
  *                 type: string
  *     responses:
  *       201:
  *         description: Patient registered successfully
  *       401:
  *         description: Unauthorized
- */
-router.post('/', protect, authorize('PATIENT'), registerPatient);
-
-/**
- * @swagger
- * /patients/me:
  *   get:
- *     summary: Get the authenticated user's patient profile
+ *     summary: Get all patients for the organization
  *     tags: [Patients]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Patient profile
+ *         description: List of patients
  *       401:
  *         description: Unauthorized
- *       404:
- *         description: Profile not found
  */
-router.get('/me', protect, authorize('PATIENT'), getMyPatientProfile);
+router.route('/')
+  .post(protect, authorize('ORG_ADMIN', 'RECEPTIONIST', 'PATIENT'), registerPatient)
+  .get(protect, authorize('ORG_ADMIN', 'RECEPTIONIST', 'PRACTITIONER', 'STAFF'), getPatients);
+
 
 /**
  * @swagger
  * /patients/{id}:
  *   get:
- *     summary: Get patient by ID (Admin/Practitioner)
+ *     summary: Get patient by ID
  *     tags: [Patients]
  *     security:
  *       - bearerAuth: []
@@ -88,6 +86,6 @@ router.get('/me', protect, authorize('PATIENT'), getMyPatientProfile);
  *       404:
  *         description: Patient not found
  */
-router.get('/:id', protect, authorize('SUPER_ADMIN', 'ORG_ADMIN', 'PRACTITIONER', 'RECEPTIONIST'), getPatientById);
+router.get('/:id', protect, authorize('ORG_ADMIN', 'RECEPTIONIST', 'PRACTITIONER', 'STAFF', 'PATIENT'), getPatientById);
 
 export default router;

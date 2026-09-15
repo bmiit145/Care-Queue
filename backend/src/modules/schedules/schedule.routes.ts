@@ -6,7 +6,7 @@ const router = Router();
 
 router.use(protect); // Require auth for all route operations
 
-router.post('/', authorize('SUPER_ADMIN', 'ORG_ADMIN'), createSchedule);
+router.post('/', authorize('PLATFORM_ADMIN', 'ORG_ADMIN'), createSchedule);
 router.get('/practitioner/:practitionerId', getPractitionerSchedule);
 
 export default router;

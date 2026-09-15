@@ -42,7 +42,7 @@ const router = Router();
  *       201:
  *         description: Visit created
  */
-router.post('/', protect, authorize('RECEPTIONIST', 'ORG_ADMIN', 'SUPER_ADMIN'), createVisit);
+router.post('/', protect, authorize('RECEPTIONIST', 'ORG_ADMIN', 'PLATFORM_ADMIN'), createVisit);
 
 /**
  * @swagger

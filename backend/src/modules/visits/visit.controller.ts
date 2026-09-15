@@ -4,20 +4,20 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 
 export const createVisit = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { appointment, patient, practitioner, department, location, type, chiefComplaint } = req.body;
-    const organizationId = req.user?.organizationId;
+    const { appointmentId, patientId, practitionerId, departmentId, serviceId, locationId, checkInId, queueEntryId } = req.body;
+    const organizationId = req.user!.organizationId;
 
     const visit = await Visit.create({
-      organization: organizationId,
-      appointment,
-      patient,
-      practitioner,
-      department,
-      location,
-      type,
-      chiefComplaint,
-      status: 'ARRIVED', // Assuming they arrived when the visit is created (via check-in or receptionist)
-      arrivalTime: new Date(),
+      organizationId,
+      appointmentId,
+      patientId,
+      practitionerId,
+      departmentId,
+      serviceId,
+      locationId,
+      checkInId,
+      queueEntryId,
+      status: 'CREATED',
     });
 
     res.status(201).json(visit);
@@ -29,7 +29,8 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
 export const getVisitById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const visit = await Visit.findById(id).populate('patient practitioner department');
+    const organizationId = req.user!.organizationId;
+    const visit = await Visit.findOne({ _id: id, organizationId }).populate('patientId practitionerId departmentId');
     if (!visit) {
       res.status(404).json({ message: 'Visit not found' });
       return;
@@ -43,20 +44,18 @@ export const getVisitById = async (req: AuthRequest, res: Response): Promise<voi
 export const updateVisitStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status, notes, diagnosis, treatmentPlan } = req.body;
+    const { status } = req.body;
+    const organizationId = req.user!.organizationId;
 
     const updateData: any = { status };
-    if (notes) updateData.notes = notes;
-    if (diagnosis) updateData.diagnosis = diagnosis;
-    if (treatmentPlan) updateData.treatmentPlan = treatmentPlan;
 
     if (status === 'IN_PROGRESS') {
-      updateData.startTime = new Date();
+      updateData.startedAt = new Date();
     } else if (status === 'COMPLETED') {
-      updateData.endTime = new Date();
+      updateData.endedAt = new Date();
     }
 
-    const visit = await Visit.findByIdAndUpdate(id, updateData, { new: true });
+    const visit = await Visit.findOneAndUpdate({ _id: id, organizationId }, updateData, { new: true });
     if (!visit) {
       res.status(404).json({ message: 'Visit not found' });
       return;

@@ -4,17 +4,17 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 
 export const registerPatient = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { firstName, lastName, dateOfBirth, gender, contactPhone, contactEmail, address, emergencyContact } = req.body;
+    const { firstName, lastName, dateOfBirth, gender, mobileNumber, email, address, emergencyContact } = req.body;
+    const organizationId = req.user!.organizationId;
     
-    // Create patient linked to the authenticated user
     const patient = await Patient.create({
-      user: req.user?.id,
+      organizationId,
       firstName,
       lastName,
       dateOfBirth,
       gender,
-      contactPhone,
-      contactEmail,
+      mobileNumber,
+      email,
       address,
       emergencyContact,
     });
@@ -25,22 +25,20 @@ export const registerPatient = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-export const getMyPatientProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getPatients = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const patient = await Patient.findOne({ user: req.user?.id });
-    if (!patient) {
-      res.status(404).json({ message: 'Patient profile not found' });
-      return;
-    }
-    res.status(200).json(patient);
+    const organizationId = req.user!.organizationId;
+    const patients = await Patient.find({ organizationId });
+    res.status(200).json(patients);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching patient profile', error });
+    res.status(500).json({ message: 'Error fetching patients', error });
   }
 };
 
 export const getPatientById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    const organizationId = req.user!.organizationId;
+    const patient = await Patient.findOne({ _id: req.params.id, organizationId });
     if (!patient) {
       res.status(404).json({ message: 'Patient not found' });
       return;
