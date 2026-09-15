@@ -9,17 +9,16 @@
  */
 
 import { Response } from 'express';
+import mongoose from 'mongoose';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import Schedule from './schedule.model';
 import ScheduleException from './schedule-exception.model';
 import { getAvailableSlots } from './availability.service';
 
-// ── Recurring schedule CRUD ───────────────────────────────────────────────────
-
 export const createSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, dayOfWeek, startTime, endTime, departmentId, locationId } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = req.user!.organizationId!;
 
     if (!practitionerId || dayOfWeek === undefined || !startTime || !endTime) {
       res.status(400).json({ message: 'practitionerId, dayOfWeek, startTime, and endTime are required' });
@@ -27,13 +26,13 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
     }
 
     const schedule = await Schedule.create({
-      organizationId,
-      practitionerId,
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      practitionerId: new mongoose.Types.ObjectId(String(practitionerId)),
       dayOfWeek,
       startTime,
       endTime,
-      departmentId,
-      locationId,
+      ...(departmentId ? { departmentId: new mongoose.Types.ObjectId(String(departmentId)) } : {}),
+      ...(locationId ? { locationId: new mongoose.Types.ObjectId(String(locationId)) } : {}),
     });
 
     res.status(201).json(schedule);
@@ -44,11 +43,14 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
 
 export const getSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
-    const filter: Record<string, unknown> = { organizationId, isActive: true };
+    const organizationId = req.user!.organizationId!;
+    const filter: Record<string, unknown> = {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      isActive: true,
+    };
 
-    if (req.query.practitionerId) filter.practitionerId = req.query.practitionerId;
-    if (req.query.departmentId)   filter.departmentId   = req.query.departmentId;
+    if (req.query.practitionerId) filter.practitionerId = new mongoose.Types.ObjectId(String(req.query.practitionerId));
+    if (req.query.departmentId) filter.departmentId = new mongoose.Types.ObjectId(String(req.query.departmentId));
     if (req.query.dayOfWeek !== undefined) filter.dayOfWeek = Number(req.query.dayOfWeek);
 
     const schedules = await Schedule.find(filter)
@@ -65,14 +67,16 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
 export const getPractitionerSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = req.user!.organizationId!;
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    const practitionerObjectId = new mongoose.Types.ObjectId(String(practitionerId));
 
-    const schedules = await Schedule.find({ organizationId, practitionerId, isActive: true })
+    const schedules = await Schedule.find({ organizationId: orgObjectId, practitionerId: practitionerObjectId, isActive: true })
       .sort({ dayOfWeek: 1, startTime: 1 });
 
     const exceptions = await ScheduleException.find({
-      organizationId,
-      practitionerId,
+      organizationId: orgObjectId,
+      practitionerId: practitionerObjectId,
       date: { $gte: new Date() },
     }).sort({ date: 1 });
 
@@ -84,8 +88,9 @@ export const getPractitionerSchedule = async (req: AuthRequest, res: Response): 
 
 export const updateSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const organizationId = req.user!.organizationId!;
     const schedule = await Schedule.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: new mongoose.Types.ObjectId(String(req.params.id)), organizationId: new mongoose.Types.ObjectId(organizationId) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -101,8 +106,9 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
 
 export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const organizationId = req.user!.organizationId!;
     const schedule = await Schedule.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: new mongoose.Types.ObjectId(String(req.params.id)), organizationId: new mongoose.Types.ObjectId(organizationId) },
       { isActive: false },
       { new: true }
     );
@@ -116,12 +122,10 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
-// ── Schedule exceptions ───────────────────────────────────────────────────────
-
 export const createScheduleException = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, date, reason, isAvailable, startTime, endTime } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = req.user!.organizationId!;
 
     if (!practitionerId || !date || !reason || isAvailable === undefined) {
       res.status(400).json({ message: 'practitionerId, date, reason, and isAvailable are required' });
@@ -129,13 +133,13 @@ export const createScheduleException = async (req: AuthRequest, res: Response): 
     }
 
     const exception = await ScheduleException.create({
-      organizationId,
-      practitionerId,
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      practitionerId: new mongoose.Types.ObjectId(String(practitionerId)),
       date: new Date(date),
       reason,
       isAvailable,
-      startTime,
-      endTime,
+      ...(startTime ? { startTime } : {}),
+      ...(endTime ? { endTime } : {}),
     });
 
     res.status(201).json(exception);
@@ -146,10 +150,12 @@ export const createScheduleException = async (req: AuthRequest, res: Response): 
 
 export const getScheduleExceptions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
-    const filter: Record<string, unknown> = { organizationId };
+    const organizationId = req.user!.organizationId!;
+    const filter: Record<string, unknown> = {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+    };
 
-    if (req.query.practitionerId) filter.practitionerId = req.query.practitionerId;
+    if (req.query.practitionerId) filter.practitionerId = new mongoose.Types.ObjectId(String(req.query.practitionerId));
 
     const exceptions = await ScheduleException.find(filter)
       .populate('practitionerId', 'firstName lastName')
@@ -161,40 +167,25 @@ export const getScheduleExceptions = async (req: AuthRequest, res: Response): Pr
   }
 };
 
-// ── Availability Engine ───────────────────────────────────────────────────────
-
-/**
- * GET /api/schedules/availability
- * Query params: practitionerId (required), date (required), slotDurationMin (optional)
- *
- * Returns an array of { start, end } slots that are still open for booking.
- * The mobile app calls this to show the booking calendar.
- */
 export const getAvailability = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { practitionerId, date, slotDurationMin } = req.query as Record<string, string>;
-    const organizationId = req.user!.organizationId;
+    const organizationId = req.user!.organizationId!;
+    const { practitionerId, date, serviceDurationMin } = req.query;
 
     if (!practitionerId || !date) {
-      res.status(400).json({ message: 'practitionerId and date are required query params' });
-      return;
-    }
-
-    const targetDate = new Date(date);
-    if (isNaN(targetDate.getTime())) {
-      res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD.' });
+      res.status(400).json({ message: 'practitionerId and date are required' });
       return;
     }
 
     const slots = await getAvailableSlots({
-      organizationId: organizationId!.toString(),
-      practitionerId,
-      date: targetDate,
-      slotDurationMin: slotDurationMin ? parseInt(slotDurationMin, 10) : 15,
+      organizationId,
+      practitionerId: String(practitionerId),
+      date: new Date(String(date)),
+      ...(serviceDurationMin ? { slotDurationMin: Number(serviceDurationMin) } : {}),
     });
 
-    res.status(200).json({ date, practitionerId, slots });
+    res.status(200).json(slots);
   } catch (error) {
-    res.status(500).json({ message: 'Error computing availability', error });
+    res.status(500).json({ message: 'Error calculating availability', error });
   }
 };
