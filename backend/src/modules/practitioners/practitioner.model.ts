@@ -1,11 +1,11 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IPractitioner extends Document {
+export interface IPractitioner {
   organizationId: mongoose.Types.ObjectId;
-  userId?: mongoose.Types.ObjectId; // Optional if Practitioner doesn't log in
+  userId?: mongoose.Types.ObjectId;
   firstName: string;
   lastName: string;
-  type: string; // 'DOCTOR', 'DENTIST', 'PHYSIOTHERAPIST', etc.
+  type: string;
   specializations: string[];
   contactEmail?: string;
   contactPhone?: string;

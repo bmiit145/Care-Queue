@@ -1,9 +1,9 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface ILocation extends Document {
+export interface ILocation {
   organizationId: mongoose.Types.ObjectId;
   name: string;
-  type: string; // e.g., 'MAIN_CAMPUS', 'CLINIC_BRANCH'
+  type: string;
   address?: string;
   isActive: boolean;
   createdAt: Date;

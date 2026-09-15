@@ -1,6 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IDepartment extends Document {
+export interface IDepartment {
   organizationId: mongoose.Types.ObjectId;
   locationId?: mongoose.Types.ObjectId;
   name: string;
@@ -13,7 +13,7 @@ export interface IDepartment extends Document {
 const DepartmentSchema = new Schema<IDepartment>(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
-    locationId: { type: Schema.Types.ObjectId, ref: 'Location', index: true }, // Optional if spanning multiple locations
+    locationId: { type: Schema.Types.ObjectId, ref: 'Location', index: true },
     name: { type: String, required: true },
     description: { type: String },
     isActive: { type: Boolean, default: true },

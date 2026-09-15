@@ -1,6 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IAppointment extends Document {
+export interface IAppointment {
   organizationId: mongoose.Types.ObjectId;
   locationId?: mongoose.Types.ObjectId;
   patientId: mongoose.Types.ObjectId;
@@ -10,8 +10,8 @@ export interface IAppointment extends Document {
   date: Date;
   scheduledStartTime?: Date;
   scheduledEndTime?: Date;
-  status: string; // 'BOOKED', 'CONFIRMED', 'CHECKED_IN', 'IN_QUEUE', 'IN_CONSULTATION', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED'
-  source: string; // 'ONLINE', 'WALK_IN', 'PHONE', 'RECEPTION', 'REFERRAL'
+  status: string;
+  source: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,18 +27,18 @@ const AppointmentSchema = new Schema<IAppointment>(
     date: { type: Date, required: true, index: true },
     scheduledStartTime: { type: Date },
     scheduledEndTime: { type: Date },
-    status: { 
-      type: String, 
-      required: true, 
+    status: {
+      type: String,
+      required: true,
       enum: ['BOOKED', 'CONFIRMED', 'CHECKED_IN', 'IN_QUEUE', 'IN_CONSULTATION', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED'],
-      default: 'BOOKED' 
+      default: 'BOOKED',
     },
-    source: { 
-      type: String, 
-      required: true, 
+    source: {
+      type: String,
+      required: true,
       enum: ['ONLINE', 'WALK_IN', 'PHONE', 'RECEPTION', 'REFERRAL'],
-      default: 'ONLINE' 
-    }
+      default: 'ONLINE',
+    },
   },
   { timestamps: true }
 );

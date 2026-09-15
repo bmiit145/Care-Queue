@@ -1,6 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IQueue extends Document {
+export interface IQueue {
   organizationId: mongoose.Types.ObjectId;
   locationId?: mongoose.Types.ObjectId;
   departmentId?: mongoose.Types.ObjectId;

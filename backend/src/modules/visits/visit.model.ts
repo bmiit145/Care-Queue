@@ -1,6 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IVisit extends Document {
+export interface IVisit {
   organizationId: mongoose.Types.ObjectId;
   locationId?: mongoose.Types.ObjectId;
   patientId: mongoose.Types.ObjectId;
@@ -10,7 +10,7 @@ export interface IVisit extends Document {
   appointmentId?: mongoose.Types.ObjectId;
   checkInId?: mongoose.Types.ObjectId;
   queueEntryId?: mongoose.Types.ObjectId;
-  status: string; // 'CREATED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
+  status: string;
   startedAt?: Date;
   endedAt?: Date;
   createdAt: Date;
@@ -28,13 +28,13 @@ const VisitSchema = new Schema<IVisit>(
     appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
     checkInId: { type: Schema.Types.ObjectId, ref: 'CheckIn' },
     queueEntryId: { type: Schema.Types.ObjectId, ref: 'QueueEntry' },
-    status: { 
-      type: String, 
-      enum: ['CREATED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'], 
-      default: 'CREATED' 
+    status: {
+      type: String,
+      enum: ['CREATED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+      default: 'CREATED',
     },
     startedAt: { type: Date },
-    endedAt: { type: Date }
+    endedAt: { type: Date },
   },
   { timestamps: true }
 );

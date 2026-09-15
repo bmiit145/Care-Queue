@@ -1,6 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IQueueEntry extends Document {
+export interface IQueueEntry {
   organizationId: mongoose.Types.ObjectId;
   locationId?: mongoose.Types.ObjectId;
   departmentId?: mongoose.Types.ObjectId;
@@ -11,8 +11,8 @@ export interface IQueueEntry extends Document {
   queueId: mongoose.Types.ObjectId;
   tokenNumber: string;
   queueDate: Date;
-  status: string; // 'WAITING' | 'IN_CONSULTATION' | 'COMPLETED' | 'SKIPPED' | 'CANCELLED' | 'NO_SHOW'
-  priority: string; // 'NORMAL' | 'HIGH' | 'EMERGENCY'
+  status: string;
+  priority: string;
   joinedAt: Date;
   calledAt?: Date;
   completedAt?: Date;
@@ -44,7 +44,7 @@ const QueueEntrySchema = new Schema<IQueueEntry>(
     },
     joinedAt: { type: Date, default: Date.now },
     calledAt: { type: Date },
-    completedAt: { type: Date }
+    completedAt: { type: Date },
   },
   { timestamps: true }
 );

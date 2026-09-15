@@ -1,11 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { User, UserRole } from '../../modules/users/user.model';
+import jwt, { type JwtPayload } from 'jsonwebtoken';
+import { User, USER_ROLES, UserRole } from '../../modules/users/user.model';
+import { env } from '../../config/env';
 
-/**
- * Extends Express Request with the authenticated user context.
- * organizationId is extracted from the JWT and auto-scopes all queries.
- */
 export interface AuthRequest extends Request {
   user?: {
     id: string;
@@ -14,18 +11,20 @@ export interface AuthRequest extends Request {
   };
 }
 
-interface JwtPayload {
+interface AccessTokenPayload extends JwtPayload {
   id: string;
   role: UserRole;
   organizationId?: string;
 }
 
-/**
- * protect — verifies the Bearer JWT and attaches req.user.
- * organizationId is embedded in the token at login time so every
- * downstream controller can use it for tenant-scoped queries without
- * hitting the database again.
- */
+const isAccessTokenPayload = (value: string | JwtPayload): value is AccessTokenPayload => {
+  if (typeof value === 'string' || typeof value.id !== 'string' || typeof value.role !== 'string') {
+    return false;
+  }
+
+  return (USER_ROLES as readonly string[]).includes(value.role);
+};
+
 export const protect = async (
   req: AuthRequest,
   res: Response,
@@ -33,29 +32,41 @@ export const protect = async (
 ): Promise<void> => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ message: 'Not authorized — no token provided' });
     return;
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.slice('Bearer '.length).trim();
+  if (!token) {
+    res.status(401).json({ message: 'Not authorized — no token provided' });
+    return;
+  }
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'changeme_in_production'
-    ) as JwtPayload;
+    const decoded = jwt.verify(token, env.jwtSecret, {
+      algorithms: ['HS256'],
+    });
 
-    // Re-verify the user still exists and is active
+    if (!isAccessTokenPayload(decoded)) {
+      res.status(401).json({ message: 'Not authorized — invalid token payload' });
+      return;
+    }
+
     const user = await User.findById(decoded.id).select('-passwordHash').lean();
     if (!user || !user.isActive) {
       res.status(401).json({ message: 'Not authorized — user not found or deactivated' });
       return;
     }
 
+    if (user.role !== decoded.role) {
+      res.status(401).json({ message: 'Not authorized — token role is stale' });
+      return;
+    }
+
     req.user = {
-      id:             decoded.id,
-      role:           decoded.role,
+      id: decoded.id,
+      role: decoded.role,
       organizationId: decoded.organizationId,
     };
 
@@ -65,13 +76,6 @@ export const protect = async (
   }
 };
 
-/**
- * authorize — role-based access control guard.
- * Usage: authorize('ORG_ADMIN', 'RECEPTIONIST')
- *
- * Roles per docs/phase-1-architecture.md § 13:
- *   PLATFORM_ADMIN | ORG_ADMIN | RECEPTIONIST | PRACTITIONER | STAFF | PATIENT
- */
 export const authorize = (...allowedRoles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
@@ -91,10 +95,6 @@ export const authorize = (...allowedRoles: UserRole[]) => {
   };
 };
 
-/**
- * requireOrg — ensures the authenticated user belongs to an organization.
- * Must be used after protect() on all org-scoped routes.
- */
 export const requireOrg = (
   req: AuthRequest,
   res: Response,
@@ -106,5 +106,6 @@ export const requireOrg = (
     });
     return;
   }
+
   next();
 };

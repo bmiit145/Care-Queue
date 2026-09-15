@@ -1,13 +1,16 @@
 import mongoose from 'mongoose';
+import { env } from './env';
 
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/care_queue');
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`Error: ${(error as Error).message}`);
-    process.exit(1);
-  }
+const connectDB = async (): Promise<void> => {
+  mongoose.set('strictQuery', true);
+
+  await mongoose.connect(env.mongoUri, {
+    serverSelectionTimeoutMS: 10_000,
+    maxPoolSize: 20,
+    minPoolSize: 2,
+  });
+
+  console.log(`MongoDB connected: ${mongoose.connection.name}`);
 };
 
 export default connectDB;
