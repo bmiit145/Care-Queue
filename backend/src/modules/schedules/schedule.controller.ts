@@ -19,7 +19,7 @@ import { getAvailableSlots } from './availability.service';
 export const createSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, dayOfWeek, startTime, endTime, departmentId, locationId } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!practitionerId || dayOfWeek === undefined || !startTime || !endTime) {
       res.status(400).json({ message: 'practitionerId, dayOfWeek, startTime, and endTime are required' });
@@ -44,7 +44,7 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
 
 export const getSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const filter: Record<string, unknown> = { organizationId, isActive: true };
 
     if (req.query.practitionerId) filter.practitionerId = req.query.practitionerId;
@@ -65,14 +65,14 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
 export const getPractitionerSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
-    const schedules = await Schedule.find({ organizationId, practitionerId, isActive: true })
+    const schedules = await Schedule.find({ organizationId, practitionerId: practitionerId as string, isActive: true })
       .sort({ dayOfWeek: 1, startTime: 1 });
 
     const exceptions = await ScheduleException.find({
       organizationId,
-      practitionerId,
+      practitionerId: practitionerId as string,
       date: { $gte: new Date() },
     }).sort({ date: 1 });
 
@@ -85,7 +85,7 @@ export const getPractitionerSchedule = async (req: AuthRequest, res: Response): 
 export const updateSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const schedule = await Schedule.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -102,7 +102,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
 export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const schedule = await Schedule.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       { isActive: false },
       { new: true }
     );
@@ -121,7 +121,7 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
 export const createScheduleException = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, date, reason, isAvailable, startTime, endTime } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!practitionerId || !date || !reason || isAvailable === undefined) {
       res.status(400).json({ message: 'practitionerId, date, reason, and isAvailable are required' });
@@ -146,7 +146,7 @@ export const createScheduleException = async (req: AuthRequest, res: Response): 
 
 export const getScheduleExceptions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const filter: Record<string, unknown> = { organizationId };
 
     if (req.query.practitionerId) filter.practitionerId = req.query.practitionerId;
@@ -173,7 +173,7 @@ export const getScheduleExceptions = async (req: AuthRequest, res: Response): Pr
 export const getAvailability = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, date, slotDurationMin } = req.query as Record<string, string>;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!practitionerId || !date) {
       res.status(400).json({ message: 'practitionerId and date are required query params' });

@@ -72,7 +72,7 @@ async function getAvgServiceDuration(queueId: string, orgId: string): Promise<nu
 export const createQueue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, departmentId, locationId, practitionerId, serviceId, queueDate } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!name) {
       res.status(400).json({ message: 'name is required' });
@@ -104,7 +104,7 @@ export const createQueue = async (req: AuthRequest, res: Response): Promise<void
  */
 export const getQueues = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const filter: Record<string, unknown> = { organizationId, isActive: true };
 
     if (req.query.departmentId)   filter.departmentId   = req.query.departmentId;
@@ -135,7 +135,7 @@ export const getQueues = async (req: AuthRequest, res: Response): Promise<void> 
 export const getQueueEntries = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { queueId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     const queue = await Queue.findOne({ _id: queueId, organizationId });
     if (!queue) {
@@ -143,17 +143,17 @@ export const getQueueEntries = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    const entries = await QueueEntry.find({ queueId, organizationId })
+    const entries = await QueueEntry.find({ queueId: queueId as string, organizationId })
       .populate('patientId', 'firstName lastName contactPhone')
       .sort({ tokenNumber: 1 });
 
-    const avgDurationMs = await getAvgServiceDuration(queueId, organizationId!.toString());
+    const avgDurationMs = await getAvgServiceDuration(queueId as string, organizationId!.toString());
 
     // Annotate each WAITING entry with position + ETA
     let waitingPosition = 0;
     const annotated = entries.map(e => {
-      const obj = e.toObject() as Record<string, unknown>;
-      if (e.status === 'WAITING') {
+      const obj = e.toObject() as unknown as Record<string, unknown>;
+      if ((e as any).status === 'WAITING') {
         waitingPosition++;
         obj.position = waitingPosition;
         obj.estimatedWaitMs = waitingPosition * avgDurationMs;
@@ -175,7 +175,7 @@ export const getQueueEntries = async (req: AuthRequest, res: Response): Promise<
 export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { queueId, patientId, appointmentId, checkInId, priority } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!queueId || !patientId) {
       res.status(400).json({ message: 'queueId and patientId are required' });
@@ -233,12 +233,10 @@ export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> 
 
     const tokenNumber = String(queue.currentTokenNumber).padStart(3, '0');
 
-    const entry = await QueueEntry.create({
+    const entryData: any = {
       organizationId,
       queueId:        queue._id,
       patientId,
-      appointmentId:  appointmentId  || undefined,
-      checkInId:      checkInId      || undefined,
       departmentId:   queue.departmentId,
       locationId:     queue.locationId,
       practitionerId: queue.practitionerId,
@@ -247,7 +245,11 @@ export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> 
       status:         'WAITING',
       priority:       priority || 'NORMAL',
       joinedAt:       new Date(),
-    });
+    };
+    if (appointmentId) entryData.appointmentId = appointmentId;
+    if (checkInId) entryData.checkInId = checkInId;
+
+    const entry = await QueueEntry.create(entryData);
 
     // Update appointment status → IN_QUEUE
     if (appointmentId) {
@@ -289,7 +291,7 @@ export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> 
 export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { queueId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     // Ensure the queue belongs to this org
     const queue = await Queue.findOne({ _id: queueId, organizationId });
@@ -300,7 +302,7 @@ export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<
 
     // Pick the highest-priority waiting entry
     const PRIORITY_ORDER: Record<string, number> = { EMERGENCY: 0, HIGH: 1, NORMAL: 2 };
-    const waiting = await QueueEntry.find({ queueId, organizationId, status: 'WAITING' })
+    const waiting = await QueueEntry.find({ queueId: queueId as string, organizationId, status: 'WAITING' })
       .sort({ tokenNumber: 1 });
 
     if (!waiting.length) {
@@ -313,10 +315,10 @@ export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<
       const pa = PRIORITY_ORDER[(a as any).priority ?? 'NORMAL'] ?? 2;
       const pb = PRIORITY_ORDER[(b as any).priority ?? 'NORMAL'] ?? 2;
       if (pa !== pb) return pa - pb;
-      return a.tokenNumber.localeCompare(b.tokenNumber);
+      return (a as any).tokenNumber.localeCompare((b as any).tokenNumber);
     });
 
-    const next = waiting[0];
+    const next = waiting[0] as any;
     const previousStatus = next.status;
     next.status   = 'IN_CONSULTATION';
     next.calledAt = new Date();
@@ -361,7 +363,7 @@ export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<
 export const recallEntry = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { entryId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     const entry = await QueueEntry.findOne({ _id: entryId, organizationId });
     if (!entry) {
@@ -412,7 +414,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
   try {
     const { entryId } = req.params;
     const { status }  = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!status) {
       res.status(400).json({ message: 'status is required' });
@@ -494,7 +496,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
 export const getQueuePosition = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { entryId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     const entry = await QueueEntry.findOne({ _id: entryId, organizationId });
     if (!entry) {

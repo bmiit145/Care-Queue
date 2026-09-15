@@ -5,7 +5,7 @@ import type { AuthRequest } from '../../shared/middlewares/auth.middleware';
 export const getPractitioners = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const filter: any = {
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       isActive: true,
     };
     if (req.query.type) filter.type = req.query.type;
@@ -27,7 +27,7 @@ export const createPractitioner = async (req: AuthRequest, res: Response): Promi
       return;
     }
     const practitioner = await Practitioner.create({
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       firstName,
       lastName,
       type,
@@ -46,7 +46,7 @@ export const getPractitionerById = async (req: AuthRequest, res: Response): Prom
   try {
     const practitioner = await Practitioner.findOne({
       _id: req.params.id,
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
     }).populate('userId', 'firstName lastName email');
     if (!practitioner) {
       res.status(404).json({ message: 'Practitioner not found' });
@@ -61,7 +61,7 @@ export const getPractitionerById = async (req: AuthRequest, res: Response): Prom
 export const updatePractitioner = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const practitioner = await Practitioner.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -78,7 +78,7 @@ export const updatePractitioner = async (req: AuthRequest, res: Response): Promi
 export const deletePractitioner = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const practitioner = await Practitioner.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       { isActive: false },
       { new: true }
     );

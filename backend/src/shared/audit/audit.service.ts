@@ -1,14 +1,14 @@
 import { AuditLog } from './audit.model';
 
 interface AuditLogPayload {
-  organizationId?: string;
+  organizationId?: string | undefined;
   actorUserId: string;
   actorRole: string;
   action: string;
   entityType: string;
   entityId: string;
-  metadata?: Record<string, unknown>;
-  ipAddress?: string;
+  metadata?: Record<string, unknown> | undefined;
+  ipAddress?: string | undefined;
 }
 
 export class AuditService {
@@ -20,7 +20,8 @@ export class AuditService {
     try {
       // In a high-throughput enterprise system, this might push to a pub/sub queue (e.g., Kafka)
       // For Phase 1, we write directly to the capped Mongo collection.
-      await AuditLog.create(payload);
+      const cleanPayload = Object.fromEntries(Object.entries(payload).filter(([_, v]) => v !== undefined));
+      await AuditLog.create(cleanPayload);
     } catch (error) {
       // Log to stderr but do not crash the request
       console.error('[AUDIT_ERROR] Failed to write audit log:', error, payload);

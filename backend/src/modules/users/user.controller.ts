@@ -11,7 +11,7 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const filter: any = { isActive: true };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = req.user!.organizationId;
+      filter.organizationId = (req.user!.organizationId as string);
     }
     const users = await User.find(filter).select('-passwordHash').sort({ lastName: 1 });
     res.status(200).json(users);
@@ -47,8 +47,8 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
     // ORG_ADMIN can only create users in their own org
     const assignedOrgId =
       req.user!.role === 'PLATFORM_ADMIN'
-        ? organizationId || req.user!.organizationId
-        : req.user!.organizationId;
+        ? organizationId || (req.user!.organizationId as string)
+        : (req.user!.organizationId as string);
 
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
@@ -83,7 +83,7 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
   try {
     const filter: any = { _id: req.params.id };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = req.user!.organizationId;
+      filter.organizationId = (req.user!.organizationId as string);
     }
     const user = await User.findOne(filter).select('-passwordHash');
     if (!user) {
@@ -109,7 +109,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 
     const filter: any = { _id: req.params.id };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = req.user!.organizationId;
+      filter.organizationId = (req.user!.organizationId as string);
     }
 
     const { firstName, lastName, phone, role, isActive } = req.body;
@@ -136,7 +136,7 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   try {
     const filter: any = { _id: req.params.id };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = req.user!.organizationId;
+      filter.organizationId = (req.user!.organizationId as string);
     }
     const user = await User.findOneAndUpdate(filter, { isActive: false }, { new: true }).select('-passwordHash');
     if (!user) {

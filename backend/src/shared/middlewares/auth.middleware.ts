@@ -67,8 +67,10 @@ export const protect = async (
     req.user = {
       id: decoded.id,
       role: decoded.role,
-      organizationId: decoded.organizationId,
     };
+    if (decoded.organizationId) {
+      req.user.organizationId = decoded.organizationId;
+    }
 
     next();
   } catch {

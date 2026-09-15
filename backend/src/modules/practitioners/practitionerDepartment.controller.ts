@@ -19,7 +19,7 @@ export const assignDepartment = async (req: AuthRequest, res: Response): Promise
   try {
     const { id: practitionerId } = req.params;
     const { departmentId, serviceIds, slotDurationMin } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!departmentId) {
       res.status(400).json({ message: 'departmentId is required' });
@@ -35,7 +35,7 @@ export const assignDepartment = async (req: AuthRequest, res: Response): Promise
 
     // Upsert — if already assigned, update serviceIds
     const assignment = await PractitionerDepartment.findOneAndUpdate(
-      { organizationId, practitionerId, departmentId },
+      { organizationId, practitionerId: practitionerId as string, departmentId: departmentId as string },
       { serviceIds: serviceIds || [], slotDurationMin, isActive: true },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
@@ -51,11 +51,11 @@ export const assignDepartment = async (req: AuthRequest, res: Response): Promise
 export const getPractitionerDepartments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: practitionerId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     const assignments = await PractitionerDepartment.find({
       organizationId,
-      practitionerId,
+      practitionerId: practitionerId as string,
       isActive: true,
     })
       .populate('departmentId', 'name')
@@ -72,10 +72,10 @@ export const getPractitionerDepartments = async (req: AuthRequest, res: Response
 export const removeDepartmentAssignment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: practitionerId, deptId: departmentId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     const result = await PractitionerDepartment.findOneAndUpdate(
-      { organizationId, practitionerId, departmentId },
+      { organizationId, practitionerId: practitionerId as string, departmentId: departmentId as string },
       { isActive: false },
       { new: true }
     );
@@ -96,11 +96,11 @@ export const removeDepartmentAssignment = async (req: AuthRequest, res: Response
 export const getPractitionersInDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { deptId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     const assignments = await PractitionerDepartment.find({
       organizationId,
-      departmentId: deptId,
+      departmentId: deptId as string,
       isActive: true,
     })
       .populate('practitionerId', 'firstName lastName type specializations isActive')

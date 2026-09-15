@@ -29,7 +29,7 @@ function todayRange(): { start: Date; end: Date } {
 function avgMs(docs: Array<Record<string, Date>>, fieldA: string, fieldB: string): number {
   const valid = docs.filter(d => d[fieldA] && d[fieldB]);
   if (!valid.length) return 0;
-  const total = valid.reduce((sum, d) => sum + (d[fieldB].getTime() - d[fieldA].getTime()), 0);
+  const total = valid.reduce((sum, d) => sum + (d[fieldB]!.getTime() - d[fieldA]!.getTime()), 0);
   return Math.round(total / valid.length);
 }
 
@@ -51,7 +51,7 @@ export const getDashboardOverview = async (req: AuthRequest, res: Response): Pro
       return;
     }
 
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const { start, end } = todayRange();
 
     // ── Today's appointment breakdown ────────────────────────────────────────
@@ -149,7 +149,7 @@ export const getDashboardOverview = async (req: AuthRequest, res: Response): Pro
 
 export const getQueuePerformance = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const days = parseInt((req.query.days as string) || '7', 10);
 
     const since = new Date();

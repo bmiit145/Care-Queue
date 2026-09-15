@@ -5,7 +5,7 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 export const getServices = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const filter: any = {
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       isActive: true,
     };
     // Optional: filter by department
@@ -28,7 +28,7 @@ export const createService = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
     const service = await Service.create({
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       name,
       departmentId,
       description,
@@ -45,7 +45,7 @@ export const getServiceById = async (req: AuthRequest, res: Response): Promise<v
   try {
     const service = await Service.findOne({
       _id: req.params.id,
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
     }).populate('departmentId', 'name');
     if (!service) {
       res.status(404).json({ message: 'Service not found' });
@@ -60,7 +60,7 @@ export const getServiceById = async (req: AuthRequest, res: Response): Promise<v
 export const updateService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const service = await Service.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -77,7 +77,7 @@ export const updateService = async (req: AuthRequest, res: Response): Promise<vo
 export const deleteService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const service = await Service.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       { isActive: false },
       { new: true }
     );

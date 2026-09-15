@@ -6,7 +6,7 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 export const getLocations = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const locations = await Location.find({
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       isActive: true,
     }).sort({ name: 1 });
     res.status(200).json(locations);
@@ -24,7 +24,7 @@ export const createLocation = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
     const location = await Location.create({
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       name,
       type,
       address,
@@ -42,7 +42,7 @@ export const getLocationById = async (req: AuthRequest, res: Response): Promise<
   try {
     const location = await Location.findOne({
       _id: req.params.id,
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
     });
     if (!location) {
       res.status(404).json({ message: 'Location not found' });
@@ -58,7 +58,7 @@ export const getLocationById = async (req: AuthRequest, res: Response): Promise<
 export const updateLocation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const location = await Location.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -76,7 +76,7 @@ export const updateLocation = async (req: AuthRequest, res: Response): Promise<v
 export const deleteLocation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const location = await Location.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       { isActive: false },
       { new: true }
     );

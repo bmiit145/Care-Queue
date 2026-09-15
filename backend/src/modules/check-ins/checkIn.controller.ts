@@ -25,7 +25,7 @@ import { AuditService } from '../../shared/audit/audit.service';
 export const createCheckIn = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { patientId, appointmentId, locationId, source } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!patientId) {
       res.status(400).json({ message: 'patientId is required' });
@@ -113,7 +113,7 @@ export const createCheckIn = async (req: AuthRequest, res: Response): Promise<vo
  */
 export const getCheckIns = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -142,7 +142,7 @@ export const getCheckInById = async (req: AuthRequest, res: Response): Promise<v
   try {
     const checkIn = await CheckIn.findOne({
       _id: req.params.id,
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
     })
       .populate('patientId', 'firstName lastName contactPhone')
       .populate('appointmentId', 'scheduledStartTime practitionerId departmentId status');

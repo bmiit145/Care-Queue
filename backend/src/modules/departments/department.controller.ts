@@ -5,7 +5,7 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 export const getDepartments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const departments = await Department.find({
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       isActive: true,
     }).populate('locationId', 'name').sort({ name: 1 });
     res.status(200).json(departments);
@@ -22,7 +22,7 @@ export const createDepartment = async (req: AuthRequest, res: Response): Promise
       return;
     }
     const department = await Department.create({
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
       name,
       description,
       locationId,
@@ -37,7 +37,7 @@ export const getDepartmentById = async (req: AuthRequest, res: Response): Promis
   try {
     const department = await Department.findOne({
       _id: req.params.id,
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
     }).populate('locationId', 'name address');
     if (!department) {
       res.status(404).json({ message: 'Department not found' });
@@ -52,7 +52,7 @@ export const getDepartmentById = async (req: AuthRequest, res: Response): Promis
 export const updateDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const department = await Department.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -69,7 +69,7 @@ export const updateDepartment = async (req: AuthRequest, res: Response): Promise
 export const deleteDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const department = await Department.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
       { isActive: false },
       { new: true }
     );

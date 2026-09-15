@@ -36,7 +36,7 @@ interface AvailabilityOptions {
  */
 function parseTime(t: string): [number, number] {
   const [h, m] = t.split(':').map(Number);
-  return [h, m];
+  return [h as number, m as number];
 }
 
 /**

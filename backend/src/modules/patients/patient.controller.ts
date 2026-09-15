@@ -5,7 +5,7 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 export const registerPatient = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { firstName, lastName, dateOfBirth, gender, mobileNumber, email, address, emergencyContact } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     
     const patient = await Patient.create({
       organizationId,
@@ -27,7 +27,7 @@ export const registerPatient = async (req: AuthRequest, res: Response): Promise<
 
 export const getPatients = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const patients = await Patient.find({ organizationId });
     res.status(200).json(patients);
   } catch (error) {
@@ -37,7 +37,7 @@ export const getPatients = async (req: AuthRequest, res: Response): Promise<void
 
 export const getPatientById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const patient = await Patient.findOne({ _id: req.params.id, organizationId });
     if (!patient) {
       res.status(404).json({ message: 'Patient not found' });

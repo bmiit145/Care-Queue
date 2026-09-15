@@ -27,8 +27,8 @@ export type NotificationEventType =
 export interface NotificationPayload {
   event: NotificationEventType;
   organizationId: string;
-  patientId?: string;
-  practitionerId?: string;
+  patientId?: string | undefined;
+  practitionerId?: string | undefined;
   /** Resource-specific context (appointment, queue entry, visit, etc.) */
   context: Record<string, unknown>;
 }

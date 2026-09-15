@@ -42,7 +42,7 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
       patientId, practitionerId, departmentId, serviceId,
       locationId, date, scheduledStartTime, scheduledEndTime, source,
     } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!patientId || !date) {
       res.status(400).json({ message: 'patientId and date are required' });
@@ -76,7 +76,7 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
       }
     }
 
-    const appointment = await Appointment.create({
+    const apptPayload: any = {
       organizationId,
       patientId,
       practitionerId,
@@ -84,11 +84,13 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
       serviceId,
       locationId,
       date: new Date(date),
-      scheduledStartTime: scheduledStartTime ? new Date(scheduledStartTime) : undefined,
-      scheduledEndTime:   scheduledEndTime   ? new Date(scheduledEndTime)   : undefined,
       source: source || 'ONLINE',
       status: 'BOOKED',
-    });
+    };
+    if (scheduledStartTime) apptPayload.scheduledStartTime = new Date(scheduledStartTime);
+    if (scheduledEndTime) apptPayload.scheduledEndTime = new Date(scheduledEndTime);
+
+    const appointment = await Appointment.create(apptPayload);
 
     // Fire audit event
     AuditService.log({
@@ -121,7 +123,7 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
  */
 export const getMyAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const appointments = await Appointment.find({
       patientId: req.user!.id,
       organizationId,
@@ -143,7 +145,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response): Promis
  */
 export const getAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const filter: Record<string, unknown> = { organizationId };
 
     if (req.query.date) {
@@ -177,7 +179,7 @@ export const getAppointmentById = async (req: AuthRequest, res: Response): Promi
   try {
     const appointment = await Appointment.findOne({
       _id: req.params.id,
-      organizationId: req.user!.organizationId,
+      organizationId: (req.user!.organizationId as string),
     })
       .populate('patientId', 'firstName lastName contactPhone')
       .populate('practitionerId', 'firstName lastName type')
@@ -200,7 +202,7 @@ export const getAppointmentById = async (req: AuthRequest, res: Response): Promi
 export const getPractitionerAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const filter: Record<string, unknown> = { practitionerId, organizationId };
 
     if (req.query.date) {
@@ -228,7 +230,7 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!status) {
       res.status(400).json({ message: 'status is required' });
@@ -293,7 +295,7 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
  */
 export const cancelAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const appointment = await Appointment.findOne({ _id: req.params.id, organizationId });
     if (!appointment) {
       res.status(404).json({ message: 'Appointment not found' });

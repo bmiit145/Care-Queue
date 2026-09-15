@@ -48,7 +48,7 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
       appointmentId, patientId, practitionerId, departmentId,
       serviceId, locationId, checkInId, queueEntryId,
     } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!patientId) {
       res.status(400).json({ message: 'patientId is required' });
@@ -124,7 +124,7 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
  */
 export const getVisits = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
     const filter: Record<string, unknown> = { organizationId };
 
     if (req.query.patientId)       filter.patientId       = req.query.patientId;
@@ -156,7 +156,7 @@ export const getVisits = async (req: AuthRequest, res: Response): Promise<void> 
 export const getVisitById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     const visit = await Visit.findOne({ _id: id, organizationId })
       .populate('patientId', 'firstName lastName contactPhone')
@@ -184,7 +184,7 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = (req.user!.organizationId as string);
 
     if (!status) {
       res.status(400).json({ message: 'status is required' });
