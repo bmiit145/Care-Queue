@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Organization {
   _id: string;
@@ -17,6 +21,11 @@ interface Organization {
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Form State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newOrg, setNewOrg] = useState({ name: "", type: "HOSPITAL", contactEmail: "", contactPhone: "" });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     fetchOrganizations();
@@ -34,6 +43,21 @@ export default function OrganizationsPage() {
     }
   };
 
+  const handleCreateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setCreating(true);
+      const res = await api.post("/organizations", newOrg);
+      setOrganizations([...organizations, res.data]);
+      setIsModalOpen(false);
+      setNewOrg({ name: "", type: "HOSPITAL", contactEmail: "", contactPhone: "" });
+    } catch (error) {
+      console.error("Failed to create organization", error);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -41,7 +65,68 @@ export default function OrganizationsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Organizations</h2>
           <p className="text-muted-foreground">Manage all hospital and clinic tenants across the platform.</p>
         </div>
-        <Button>Add Organization</Button>
+        
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogTrigger asChild>
+            <Button>Add Organization</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Organization</DialogTitle>
+              <DialogDescription>
+                Add a new tenant to the Care-Queue platform.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateOrganization} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Organization Name</Label>
+                <Input 
+                  id="name" 
+                  value={newOrg.name} 
+                  onChange={(e) => setNewOrg({...newOrg, name: e.target.value})} 
+                  required 
+                  placeholder="e.g. ABC Hospital" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="type">Type</Label>
+                <Select value={newOrg.type} onValueChange={(val) => setNewOrg({...newOrg, type: val})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HOSPITAL">Hospital</SelectItem>
+                    <SelectItem value="CLINIC">Clinic</SelectItem>
+                    <SelectItem value="PRIVATE_PRACTICE">Private Practice</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Contact Email</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  value={newOrg.contactEmail} 
+                  onChange={(e) => setNewOrg({...newOrg, contactEmail: e.target.value})} 
+                  required 
+                  placeholder="admin@abchospital.com" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Contact Phone</Label>
+                <Input 
+                  id="phone" 
+                  value={newOrg.contactPhone} 
+                  onChange={(e) => setNewOrg({...newOrg, contactPhone: e.target.value})} 
+                  placeholder="+1234567890" 
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={creating}>
+                {creating ? "Creating..." : "Create Organization"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {loading ? (

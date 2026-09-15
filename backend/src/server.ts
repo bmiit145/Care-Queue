@@ -22,6 +22,8 @@ import patientRoutes from './modules/patients/patient.routes';
 import queueRoutes from './modules/queues/queue.routes';
 import appointmentRoutes from './modules/appointments/appointment.routes';
 import visitRoutes from './modules/visits/visit.routes';
+import scheduleRoutes from './modules/schedules/schedule.routes';
+import analyticsRoutes from './modules/analytics/analytics.routes';
 
 // Swagger API documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -33,6 +35,8 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/queues', queueRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/visits', visitRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Root route
 app.get('/', (req, res) => {

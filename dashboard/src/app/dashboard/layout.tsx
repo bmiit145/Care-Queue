@@ -38,9 +38,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Care-Queue
           </Link>
           {user.role === "SUPER_ADMIN" && (
-             <Link href="/dashboard/organizations" className="text-sm text-gray-500 hover:text-black">
-               Organizations
-             </Link>
+             <>
+               <Link href="/dashboard/organizations" className="text-sm text-gray-500 hover:text-black">
+                 Organizations
+               </Link>
+               <Link href="/dashboard/users" className="text-sm text-gray-500 hover:text-black">
+                 Users
+               </Link>
+             </>
           )}
         </div>
         <div className="flex items-center space-x-4">
