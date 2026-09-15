@@ -16,6 +16,7 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import { Appointment } from '../appointments/appointment.model';
 import { Patient } from '../patients/patient.model';
 import { notificationService } from '../../shared/notifications/notification.service';
+import { AuditService } from '../../shared/audit/audit.service';
 
 /**
  * POST /api/check-ins
@@ -81,6 +82,17 @@ export const createCheckIn = async (req: AuthRequest, res: Response): Promise<vo
         { status: 'CHECKED_IN' }
       );
     }
+
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'CREATE',
+      entityType: 'CheckIn',
+      entityId: checkIn._id.toString(),
+      metadata: { source: checkIn.source, status: 'COMPLETED' },
+      ipAddress: req.ip
+    });
 
     notificationService.notify({
       event:          'CHECKIN_COMPLETED',

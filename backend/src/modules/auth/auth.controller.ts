@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, UserRole } from '../users/user.model';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'changeme_in_production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
 /**
@@ -11,9 +10,10 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
  * organizationId is critical for tenant isolation on every subsequent request.
  */
 const generateToken = (id: string, role: UserRole, organizationId?: string): string => {
+  const secret = process.env.JWT_SECRET || 'changeme_in_production';
   return jwt.sign(
     { id, role, organizationId },
-    JWT_SECRET,
+    secret,
     { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
   );
 };

@@ -13,7 +13,9 @@ import { Response } from 'express';
 import { Appointment } from './appointment.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import { Patient } from '../patients/patient.model';
+import { PractitionerDepartment } from '../practitioners/practitionerDepartment.model';
 import { notificationService } from '../../shared/notifications/notification.service';
+import { AuditService } from '../../shared/audit/audit.service';
 
 // ── State machine ─────────────────────────────────────────────────────────────
 
@@ -54,6 +56,26 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
+    // Cross-entity validation: confirm practitioner provides this service in this department
+    if (practitionerId && departmentId && serviceId) {
+      const practDept = await PractitionerDepartment.findOne({
+        organizationId,
+        practitionerId,
+        departmentId,
+        isActive: true
+      });
+
+      if (!practDept) {
+        res.status(400).json({ message: 'Practitioner does not operate in this department' });
+        return;
+      }
+
+      if (!practDept.serviceIds.includes(serviceId)) {
+        res.status(400).json({ message: 'Practitioner does not provide this service in this department' });
+        return;
+      }
+    }
+
     const appointment = await Appointment.create({
       organizationId,
       patientId,
@@ -66,6 +88,18 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
       scheduledEndTime:   scheduledEndTime   ? new Date(scheduledEndTime)   : undefined,
       source: source || 'ONLINE',
       status: 'BOOKED',
+    });
+
+    // Fire audit event
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'CREATE',
+      entityType: 'Appointment',
+      entityId: appointment._id.toString(),
+      metadata: { source: appointment.source, status: 'BOOKED' },
+      ipAddress: req.ip
     });
 
     notificationService.notify({
@@ -216,8 +250,21 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
       return;
     }
 
+    const previousStatus = appointment.status;
     appointment.status = status;
     await appointment.save();
+
+    // Fire audit log for state transition
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'STATUS_CHANGE',
+      entityType: 'Appointment',
+      entityId: appointment._id.toString(),
+      metadata: { previousStatus, newStatus: status },
+      ipAddress: req.ip
+    });
 
     // Emit notification events for meaningful transitions
     const eventMap: Record<string, 'APPOINTMENT_CONFIRMED' | 'APPOINTMENT_CANCELLED' | 'APPOINTMENT_RESCHEDULED'> = {
@@ -259,8 +306,20 @@ export const cancelAppointment = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
+    const previousStatus = appointment.status;
     appointment.status = 'CANCELLED';
     await appointment.save();
+
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'CANCEL',
+      entityType: 'Appointment',
+      entityId: appointment._id.toString(),
+      metadata: { previousStatus, newStatus: 'CANCELLED' },
+      ipAddress: req.ip
+    });
 
     notificationService.notify({
       event:          'APPOINTMENT_CANCELLED',

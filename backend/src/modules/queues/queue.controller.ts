@@ -21,6 +21,7 @@ import { Appointment } from '../appointments/appointment.model';
 import { CheckIn } from '../check-ins/checkIn.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import { notificationService } from '../../shared/notifications/notification.service';
+import { AuditService } from '../../shared/audit/audit.service';
 
 // ── State machine ─────────────────────────────────────────────────────────────
 
@@ -256,6 +257,17 @@ export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> 
       );
     }
 
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'CREATE',
+      entityType: 'QueueEntry',
+      entityId: entry._id.toString(),
+      metadata: { queueId, tokenNumber, status: 'WAITING' },
+      ipAddress: req.ip
+    });
+
     notificationService.notify({
       event: 'QUEUE_JOINED',
       organizationId: organizationId!.toString(),
@@ -305,9 +317,21 @@ export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<
     });
 
     const next = waiting[0];
+    const previousStatus = next.status;
     next.status   = 'IN_CONSULTATION';
     next.calledAt = new Date();
     await next.save();
+
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'STATUS_CHANGE',
+      entityType: 'QueueEntry',
+      entityId: next._id.toString(),
+      metadata: { previousStatus, newStatus: next.status },
+      ipAddress: req.ip
+    });
 
     // Sync appointment
     if (next.appointmentId) {
@@ -350,9 +374,21 @@ export const recallEntry = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    const previousStatus = entry.status;
     entry.status   = 'IN_CONSULTATION';
     entry.calledAt = new Date();
     await entry.save();
+
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'STATUS_CHANGE',
+      entityType: 'QueueEntry',
+      entityId: entry._id.toString(),
+      metadata: { previousStatus, newStatus: entry.status },
+      ipAddress: req.ip
+    });
 
     notificationService.notify({
       event: 'PATIENT_RECALLED',
@@ -396,10 +432,22 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
       return;
     }
 
+    const previousStatus = entry.status;
     entry.status = status;
     if (status === 'IN_CONSULTATION') entry.calledAt    = new Date();
     if (status === 'COMPLETED')       entry.completedAt = new Date();
     await entry.save();
+
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'STATUS_CHANGE',
+      entityType: 'QueueEntry',
+      entityId: entry._id.toString(),
+      metadata: { previousStatus, newStatus: entry.status },
+      ipAddress: req.ip
+    });
 
     // Sync appointment state
     if (entry.appointmentId) {

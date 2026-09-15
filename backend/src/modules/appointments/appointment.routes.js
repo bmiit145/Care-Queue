@@ -1,0 +1,151 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const appointment_controller_1 = require("./appointment.controller");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+/**
+ * @swagger
+ * tags:
+ *   name: Appointments
+ *   description: Appointment booking and management
+ */
+/**
+ * @swagger
+ * /appointments:
+ *   post:
+ *     summary: Book a new appointment
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [patientId, date]
+ *             properties:
+ *               patientId:          { type: string }
+ *               practitionerId:     { type: string }
+ *               departmentId:       { type: string }
+ *               serviceId:          { type: string }
+ *               locationId:         { type: string }
+ *               date:               { type: string, format: date }
+ *               scheduledStartTime: { type: string, format: date-time }
+ *               scheduledEndTime:   { type: string, format: date-time }
+ *               source:             { type: string, enum: [ONLINE, WALK_IN, PHONE, RECEPTION, REFERRAL] }
+ *     responses:
+ *       201:
+ *         description: Appointment booked
+ *   get:
+ *     summary: List all appointments (staff/admin view with filters)
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { in: query, name: date,           schema: { type: string, format: date } }
+ *       - { in: query, name: status,         schema: { type: string } }
+ *       - { in: query, name: practitionerId, schema: { type: string } }
+ *       - { in: query, name: departmentId,   schema: { type: string } }
+ *       - { in: query, name: patientId,      schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: List of appointments
+ */
+router.route('/')
+    .post(auth_middleware_1.protect, (0, auth_middleware_1.authorize)('PATIENT', 'RECEPTIONIST', 'ORG_ADMIN', 'PLATFORM_ADMIN'), appointment_controller_1.createAppointment)
+    .get(auth_middleware_1.protect, (0, auth_middleware_1.authorize)('RECEPTIONIST', 'PRACTITIONER', 'ORG_ADMIN', 'PLATFORM_ADMIN', 'STAFF'), appointment_controller_1.getAppointments);
+/**
+ * @swagger
+ * /appointments/mine:
+ *   get:
+ *     summary: Get the authenticated patient's own appointments
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of appointments
+ */
+router.get('/mine', auth_middleware_1.protect, (0, auth_middleware_1.authorize)('PATIENT'), appointment_controller_1.getMyAppointments);
+/**
+ * @swagger
+ * /appointments/practitioner/{practitionerId}:
+ *   get:
+ *     summary: Get appointments for a specific practitioner
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { in: path, name: practitionerId, required: true, schema: { type: string } }
+ *       - { in: query, name: date, schema: { type: string, format: date } }
+ *     responses:
+ *       200:
+ *         description: List of practitioner appointments
+ */
+router.get('/practitioner/:practitionerId', auth_middleware_1.protect, (0, auth_middleware_1.authorize)('PRACTITIONER', 'RECEPTIONIST', 'ORG_ADMIN', 'PLATFORM_ADMIN', 'STAFF'), appointment_controller_1.getPractitionerAppointments);
+/**
+ * @swagger
+ * /appointments/{id}:
+ *   get:
+ *     summary: Get a single appointment by ID
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Appointment data
+ *       404:
+ *         description: Not found
+ */
+router.get('/:id', auth_middleware_1.protect, (0, auth_middleware_1.authorize)('PATIENT', 'RECEPTIONIST', 'PRACTITIONER', 'ORG_ADMIN', 'PLATFORM_ADMIN', 'STAFF'), appointment_controller_1.getAppointmentById);
+/**
+ * @swagger
+ * /appointments/{id}/status:
+ *   patch:
+ *     summary: Update appointment status (state machine enforced)
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [CONFIRMED, CHECKED_IN, IN_QUEUE, IN_CONSULTATION, COMPLETED, CANCELLED, NO_SHOW, RESCHEDULED]
+ *     responses:
+ *       200:
+ *         description: Status updated
+ *       400:
+ *         description: Invalid state transition
+ */
+router.patch('/:id/status', auth_middleware_1.protect, (0, auth_middleware_1.authorize)('RECEPTIONIST', 'PRACTITIONER', 'ORG_ADMIN', 'PLATFORM_ADMIN', 'STAFF'), appointment_controller_1.updateAppointmentStatus);
+/**
+ * @swagger
+ * /appointments/{id}:
+ *   delete:
+ *     summary: Cancel an appointment (soft cancel via state machine)
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Appointment cancelled
+ *       400:
+ *         description: Cannot cancel in current state
+ */
+router.delete('/:id', auth_middleware_1.protect, (0, auth_middleware_1.authorize)('PATIENT', 'RECEPTIONIST', 'ORG_ADMIN', 'PLATFORM_ADMIN'), appointment_controller_1.cancelAppointment);
+exports.default = router;
+//# sourceMappingURL=appointment.routes.js.map

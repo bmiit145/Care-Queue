@@ -16,6 +16,7 @@ import { Patient } from '../patients/patient.model';
 import { Appointment } from '../appointments/appointment.model';
 import { QueueEntry } from '../queues/queueEntry.model';
 import { notificationService } from '../../shared/notifications/notification.service';
+import { AuditService } from '../../shared/audit/audit.service';
 
 // ── State machine ─────────────────────────────────────────────────────────────
 
@@ -98,6 +99,17 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
       checkInId,
       queueEntryId,
       status: 'CREATED',
+    });
+
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'CREATE',
+      entityType: 'Visit',
+      entityId: visit._id.toString(),
+      metadata: { appointmentId, queueEntryId, status: 'CREATED' },
+      ipAddress: req.ip
     });
 
     res.status(201).json(visit);
@@ -192,10 +204,22 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
+    const previousStatus = visit.status;
     visit.status = status;
     if (status === 'IN_PROGRESS') visit.startedAt = new Date();
     if (status === 'COMPLETED')   visit.endedAt   = new Date();
     await visit.save();
+
+    AuditService.log({
+      organizationId: organizationId!.toString(),
+      actorUserId: req.user!.id,
+      actorRole: req.user!.role,
+      action: 'STATUS_CHANGE',
+      entityType: 'Visit',
+      entityId: visit._id.toString(),
+      metadata: { previousStatus, newStatus: visit.status },
+      ipAddress: req.ip
+    });
 
     // Sync related entities when visit completes
     if (status === 'COMPLETED') {
