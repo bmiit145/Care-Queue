@@ -1,84 +1,137 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User } from '../users/user.model';
-import { OrganizationMembership } from '../organizations/organization.model';
+import { User, UserRole } from '../users/user.model';
 
-const generateToken = (id: string) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
-    expiresIn: '30d',
-  });
+const JWT_SECRET = process.env.JWT_SECRET || 'changeme_in_production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
+
+/**
+ * Generate a signed JWT embedding id, role, and organizationId.
+ * organizationId is critical for tenant isolation on every subsequent request.
+ */
+const generateToken = (id: string, role: UserRole, organizationId?: string): string => {
+  return jwt.sign(
+    { id, role, organizationId },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
+  );
 };
 
+// ─────────────────────────────────────────
+// POST /api/auth/register
+// ─────────────────────────────────────────
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { firstName, lastName, email, password, role, organizationId } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      phone,
+      role,
+      organizationId,
+    } = req.body;
 
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      res.status(400).json({ message: 'User already exists' });
+    if (!firstName || !lastName || !email || !password) {
+      res.status(400).json({ message: 'firstName, lastName, email, and password are required' });
       return;
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      res.status(400).json({ message: 'A user with this email already exists' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    const assignedRole: UserRole = role || 'PATIENT';
 
     const user = await User.create({
       firstName,
       lastName,
-      email,
-      password: hashedPassword,
-      role: role || 'PATIENT',
+      email: email.toLowerCase(),
+      passwordHash,
+      phone,
+      role: assignedRole,
+      organizationId: organizationId || undefined,
       isActive: true,
     });
 
-    // If an organization is provided, create a membership
-    if (organizationId) {
-      await OrganizationMembership.create({
-        user: user._id,
-        organization: organizationId,
-        role: role || 'PATIENT',
-      });
-    }
-
     res.status(201).json({
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id.toString()),
+      _id:            user._id,
+      firstName:      user.firstName,
+      lastName:       user.lastName,
+      email:          user.email,
+      role:           user.role,
+      organizationId: user.organizationId,
+      token: generateToken(
+        user._id.toString(),
+        user.role,
+        user.organizationId?.toString()
+      ),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error registering user', error });
+    res.status(500).json({ message: 'Registration failed', error });
   }
 };
 
+// ─────────────────────────────────────────
+// POST /api/auth/login
+// ─────────────────────────────────────────
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
+    if (!email || !password) {
+      res.status(400).json({ message: 'email and password are required' });
+      return;
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user || !user.isActive) {
       res.status(401).json({ message: 'Invalid credentials' });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       res.status(401).json({ message: 'Invalid credentials' });
       return;
     }
 
     res.status(200).json({
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id.toString()),
+      _id:            user._id,
+      firstName:      user.firstName,
+      lastName:       user.lastName,
+      email:          user.email,
+      role:           user.role,
+      organizationId: user.organizationId,
+      token: generateToken(
+        user._id.toString(),
+        user.role,
+        user.organizationId?.toString()
+      ),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error logging in', error });
+    res.status(500).json({ message: 'Login failed', error });
+  }
+};
+
+// ─────────────────────────────────────────
+// GET /api/auth/me
+// ─────────────────────────────────────────
+export const getMe = async (req: any, res: Response): Promise<void> => {
+  try {
+    const user = await User.findById(req.user.id).select('-passwordHash').lean();
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch profile', error });
   }
 };
