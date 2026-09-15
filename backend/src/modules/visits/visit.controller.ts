@@ -10,6 +10,7 @@
  */
 
 import { Response } from 'express';
+import mongoose from 'mongoose';
 import { Visit } from './visit.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import { Patient } from '../patients/patient.model';
@@ -18,14 +19,12 @@ import { QueueEntry } from '../queues/queueEntry.model';
 import { notificationService } from '../../shared/notifications/notification.service';
 import { AuditService } from '../../shared/audit/audit.service';
 
-// ── State machine ─────────────────────────────────────────────────────────────
-
 const VISIT_TRANSITIONS: Record<string, string[]> = {
-  CREATED:     ['ARRIVED', 'CANCELLED'],
-  ARRIVED:     ['IN_PROGRESS', 'CANCELLED'],
+  CREATED: ['ARRIVED', 'CANCELLED'],
+  ARRIVED: ['IN_PROGRESS', 'CANCELLED'],
   IN_PROGRESS: ['COMPLETED'],
-  COMPLETED:   [],
-  CANCELLED:   [],
+  COMPLETED: [],
+  CANCELLED: [],
 };
 
 function assertValidVisitTransition(current: string, next: string): void {
@@ -35,81 +34,73 @@ function assertValidVisitTransition(current: string, next: string): void {
   }
 }
 
-// ── Controllers ───────────────────────────────────────────────────────────────
-
-/**
- * POST /api/visits
- * Create a Visit/Encounter.
- * Cross-entity validates: patient, appointment, queue entry.
- */
 export const createVisit = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
       appointmentId, patientId, practitionerId, departmentId,
       serviceId, locationId, checkInId, queueEntryId,
     } = req.body;
-    const organizationId = req.user!.organizationId;
+    const organizationId = req.user!.organizationId!;
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    const patientObjectId = new mongoose.Types.ObjectId(String(patientId));
 
     if (!patientId) {
       res.status(400).json({ message: 'patientId is required' });
       return;
     }
 
-    // Cross-entity: validate patient belongs to this org
-    const patient = await Patient.findOne({ _id: patientId, organizationId });
+    const patient = await Patient.findOne({ _id: patientObjectId, organizationId: orgObjectId });
     if (!patient) {
       res.status(400).json({ message: 'Patient not found in this organization' });
       return;
     }
 
-    // Cross-entity: validate appointment ownership + patient match
     if (appointmentId) {
-      const appt = await Appointment.findOne({ _id: appointmentId, organizationId });
+      const appt = await Appointment.findOne({ _id: new mongoose.Types.ObjectId(String(appointmentId)), organizationId: orgObjectId });
       if (!appt) {
         res.status(400).json({ message: 'Appointment not found in this organization' });
         return;
       }
-      if (appt.patientId.toString() !== patientId) {
+      if (appt.patientId.toString() !== String(patientId)) {
         res.status(400).json({ message: 'Appointment does not belong to this patient' });
         return;
       }
     }
 
-    // Cross-entity: validate queue entry ownership + patient match
     if (queueEntryId) {
-      const entry = await QueueEntry.findOne({ _id: queueEntryId, organizationId });
+      const entry = await QueueEntry.findOne({ _id: new mongoose.Types.ObjectId(String(queueEntryId)), organizationId: orgObjectId });
       if (!entry) {
         res.status(400).json({ message: 'Queue entry not found in this organization' });
         return;
       }
-      if (entry.patientId.toString() !== patientId) {
+      if (entry.patientId.toString() !== String(patientId)) {
         res.status(400).json({ message: 'Queue entry does not belong to this patient' });
         return;
       }
     }
 
     const visit = await Visit.create({
-      organizationId,
-      appointmentId,
-      patientId,
-      practitionerId,
-      departmentId,
-      serviceId,
-      locationId,
-      checkInId,
-      queueEntryId,
+      organizationId: orgObjectId,
+      ...(appointmentId ? { appointmentId: new mongoose.Types.ObjectId(String(appointmentId)) } : {}),
+      patientId: patientObjectId,
+      ...(practitionerId ? { practitionerId: new mongoose.Types.ObjectId(String(practitionerId)) } : {}),
+      ...(departmentId ? { departmentId: new mongoose.Types.ObjectId(String(departmentId)) } : {}),
+      ...(serviceId ? { serviceId: new mongoose.Types.ObjectId(String(serviceId)) } : {}),
+      ...(locationId ? { locationId: new mongoose.Types.ObjectId(String(locationId)) } : {}),
+      ...(checkInId ? { checkInId: new mongoose.Types.ObjectId(String(checkInId)) } : {}),
+      ...(queueEntryId ? { queueEntryId: new mongoose.Types.ObjectId(String(queueEntryId)) } : {}),
       status: 'CREATED',
     });
 
-    AuditService.log({
-      organizationId: organizationId!.toString(),
+    void AuditService.log({
+      organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'CREATE',
       entityType: 'Visit',
       entityId: visit._id.toString(),
       metadata: { appointmentId, queueEntryId, status: 'CREATED' },
-      ipAddress: req.ip
+      ...(req.ip ? { ipAddress: req.ip } : {}),
     });
 
     res.status(201).json(visit);
@@ -118,22 +109,18 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
   }
 };
 
-/**
- * GET /api/visits
- * List visits for this organization. Optional filters: ?date=&patientId=&practitionerId=&status=
- */
 export const getVisits = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = req.user!.organizationId;
-    const filter: Record<string, unknown> = { organizationId };
+    const organizationId = req.user!.organizationId!;
+    const filter: Record<string, unknown> = { organizationId: new mongoose.Types.ObjectId(organizationId) };
 
-    if (req.query.patientId)       filter.patientId       = req.query.patientId;
-    if (req.query.practitionerId)  filter.practitionerId  = req.query.practitionerId;
-    if (req.query.status)          filter.status          = req.query.status;
+    if (req.query.patientId) filter.patientId = new mongoose.Types.ObjectId(String(req.query.patientId));
+    if (req.query.practitionerId) filter.practitionerId = new mongoose.Types.ObjectId(String(req.query.practitionerId));
+    if (req.query.status) filter.status = String(req.query.status);
     if (req.query.date) {
-      const d = new Date(req.query.date as string);
+      const d = new Date(String(req.query.date));
       const start = new Date(d); start.setHours(0, 0, 0, 0);
-      const end   = new Date(d); end.setHours(23, 59, 59, 999);
+      const end = new Date(d); end.setHours(23, 59, 59, 999);
       filter.createdAt = { $gte: start, $lte: end };
     }
 
@@ -150,15 +137,11 @@ export const getVisits = async (req: AuthRequest, res: Response): Promise<void> 
   }
 };
 
-/**
- * GET /api/visits/:id
- */
 export const getVisitById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const organizationId = req.user!.organizationId;
-
-    const visit = await Visit.findOne({ _id: id, organizationId })
+    const organizationId = req.user!.organizationId!;
+    const visit = await Visit.findOne({ _id: new mongoose.Types.ObjectId(String(id)), organizationId: new mongoose.Types.ObjectId(organizationId) })
       .populate('patientId', 'firstName lastName contactPhone')
       .populate('practitionerId', 'firstName lastName type')
       .populate('departmentId', 'name')
@@ -176,22 +159,19 @@ export const getVisitById = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-/**
- * PATCH /api/visits/:id/status
- * State machine enforced. Fires notification events.
- */
 export const updateVisitStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const organizationId = req.user!.organizationId;
+    const { status } = req.body as { status?: string };
+    const organizationId = req.user!.organizationId!;
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
 
     if (!status) {
       res.status(400).json({ message: 'status is required' });
       return;
     }
 
-    const visit = await Visit.findOne({ _id: id, organizationId });
+    const visit = await Visit.findOne({ _id: new mongoose.Types.ObjectId(String(id)), organizationId: orgObjectId });
     if (!visit) {
       res.status(404).json({ message: 'Visit not found' });
       return;
@@ -199,61 +179,61 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
 
     try {
       assertValidVisitTransition(visit.status, status);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message, allowedTransitions: VISIT_TRANSITIONS[visit.status] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid visit transition';
+      res.status(400).json({ message, allowedTransitions: VISIT_TRANSITIONS[visit.status] ?? [] });
       return;
     }
 
     const previousStatus = visit.status;
     visit.status = status;
     if (status === 'IN_PROGRESS') visit.startedAt = new Date();
-    if (status === 'COMPLETED')   visit.endedAt   = new Date();
+    if (status === 'COMPLETED') visit.endedAt = new Date();
     await visit.save();
 
-    AuditService.log({
-      organizationId: organizationId!.toString(),
+    void AuditService.log({
+      organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'STATUS_CHANGE',
       entityType: 'Visit',
       entityId: visit._id.toString(),
       metadata: { previousStatus, newStatus: visit.status },
-      ipAddress: req.ip
+      ...(req.ip ? { ipAddress: req.ip } : {}),
     });
 
-    // Sync related entities when visit completes
     if (status === 'COMPLETED') {
       if (visit.appointmentId) {
         await Appointment.findOneAndUpdate(
-          { _id: visit.appointmentId, organizationId },
+          { _id: visit.appointmentId, organizationId: orgObjectId },
           { status: 'COMPLETED' }
         );
       }
       if (visit.queueEntryId) {
         await QueueEntry.findOneAndUpdate(
-          { _id: visit.queueEntryId, organizationId },
+          { _id: visit.queueEntryId, organizationId: orgObjectId },
           { status: 'COMPLETED', completedAt: new Date() }
         );
       }
     }
 
-    // Notification events
     const eventMap: Record<string, 'VISIT_STARTED' | 'VISIT_COMPLETED'> = {
       IN_PROGRESS: 'VISIT_STARTED',
-      COMPLETED:   'VISIT_COMPLETED',
+      COMPLETED: 'VISIT_COMPLETED',
     };
-    if (eventMap[status]) {
+    const notificationEvent = eventMap[status];
+    if (notificationEvent) {
       notificationService.notify({
-        event:          eventMap[status],
-        organizationId: organizationId!.toString(),
-        patientId:      visit.patientId.toString(),
-        practitionerId: visit.practitionerId?.toString(),
-        context:        { visitId: id, status },
+        event: notificationEvent,
+        organizationId,
+        patientId: visit.patientId.toString(),
+        ...(visit.practitionerId ? { practitionerId: visit.practitionerId.toString() } : {}),
+        context: { visitId: visit._id.toString(), status },
       });
     }
 
     res.status(200).json(visit);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating visit', error });
+    res.status(500).json({ message: 'Error updating visit status', error });
   }
 };
