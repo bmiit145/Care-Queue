@@ -1,15 +1,19 @@
 import { Response } from 'express';
+import mongoose from 'mongoose';
 import { Service } from './service.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 
 export const getServices = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const filter: any = {
-      organizationId: req.user!.organizationId,
+    const organizationId = req.user!.organizationId!;
+    const filter: Record<string, unknown> = {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       isActive: true,
     };
-    // Optional: filter by department
-    if (req.query.departmentId) filter.departmentId = req.query.departmentId;
+
+    if (req.query.departmentId) {
+      filter.departmentId = new mongoose.Types.ObjectId(String(req.query.departmentId));
+    }
 
     const services = await Service.find(filter)
       .populate('departmentId', 'name')
@@ -23,17 +27,20 @@ export const getServices = async (req: AuthRequest, res: Response): Promise<void
 export const createService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, departmentId, description, durationInMinutes, price } = req.body;
+    const organizationId = req.user!.organizationId!;
+
     if (!name || !departmentId) {
       res.status(400).json({ message: 'name and departmentId are required' });
       return;
     }
+
     const service = await Service.create({
-      organizationId: req.user!.organizationId,
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       name,
-      departmentId,
-      description,
+      departmentId: new mongoose.Types.ObjectId(String(departmentId)),
+      ...(description ? { description } : {}),
       durationInMinutes: durationInMinutes || 15,
-      price,
+      ...(price !== undefined ? { price } : {}),
     });
     res.status(201).json(service);
   } catch (error) {
@@ -43,10 +50,12 @@ export const createService = async (req: AuthRequest, res: Response): Promise<vo
 
 export const getServiceById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const organizationId = req.user!.organizationId!;
     const service = await Service.findOne({
-      _id: req.params.id,
-      organizationId: req.user!.organizationId,
+      _id: new mongoose.Types.ObjectId(String(req.params.id)),
+      organizationId: new mongoose.Types.ObjectId(organizationId),
     }).populate('departmentId', 'name');
+
     if (!service) {
       res.status(404).json({ message: 'Service not found' });
       return;
@@ -59,8 +68,12 @@ export const getServiceById = async (req: AuthRequest, res: Response): Promise<v
 
 export const updateService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const organizationId = req.user!.organizationId!;
     const service = await Service.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      {
+        _id: new mongoose.Types.ObjectId(String(req.params.id)),
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+      },
       req.body,
       { new: true, runValidators: true }
     );
@@ -76,8 +89,12 @@ export const updateService = async (req: AuthRequest, res: Response): Promise<vo
 
 export const deleteService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const organizationId = req.user!.organizationId!;
     const service = await Service.findOneAndUpdate(
-      { _id: req.params.id, organizationId: req.user!.organizationId },
+      {
+        _id: new mongoose.Types.ObjectId(String(req.params.id)),
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+      },
       { isActive: false },
       { new: true }
     );
