@@ -1,6 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IPatient extends Document {
+export interface IPatient {
   organizationId: mongoose.Types.ObjectId;
   firstName: string;
   lastName: string;
