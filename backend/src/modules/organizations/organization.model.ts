@@ -1,8 +1,8 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IOrganization extends Document {
+export interface IOrganization {
   name: string;
-  type: string; // e.g., 'HOSPITAL', 'CLINIC', 'PRIVATE_PRACTICE'
+  type: string;
   contactEmail: string;
   contactPhone?: string;
   address?: string;
@@ -14,8 +14,8 @@ export interface IOrganization extends Document {
 const OrganizationSchema = new Schema<IOrganization>(
   {
     name: { type: String, required: true },
-    type: { 
-      type: String, 
+    type: {
+      type: String,
       required: true,
       enum: ['HOSPITAL', 'CLINIC', 'PRIVATE_PRACTICE', 'DIAGNOSTIC_CENTER', 'HEALTHCARE_CENTER'],
     },
