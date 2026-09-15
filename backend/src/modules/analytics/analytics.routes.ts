@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDashboardOverview, getQueuePerformance } from './analytics.controller';
 import { protect, authorize } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 router.use(protect);
 
 /**

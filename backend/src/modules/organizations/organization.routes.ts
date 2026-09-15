@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createOrganization, getOrganizations } from './organization.controller';
 import { protect, authorize } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

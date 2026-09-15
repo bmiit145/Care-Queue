@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createCheckIn, getCheckIns, getCheckInById } from './checkIn.controller';
 import { protect, authorize, requireOrg } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 router.use(protect, requireOrg);
 
 /**

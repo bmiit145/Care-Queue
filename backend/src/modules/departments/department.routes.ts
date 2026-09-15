@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDepartments, createDepartment, getDepartmentById, updateDepartment, deleteDepartment } from './department.controller';
 import { protect, authorize, requireOrg } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 router.use(protect, requireOrg);
 
 /**

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { login, register, getMe } from './auth.controller';
 import { protect } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

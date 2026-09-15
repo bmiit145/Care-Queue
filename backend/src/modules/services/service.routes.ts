@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getServices, createService, getServiceById, updateService, deleteService } from './service.controller';
 import { protect, authorize, requireOrg } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 router.use(protect, requireOrg);
 
 /**

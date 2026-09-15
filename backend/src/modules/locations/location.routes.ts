@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getLocations, createLocation, getLocationById, updateLocation, deleteLocation } from './location.controller';
 import { protect, authorize, requireOrg } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 
 // All routes require authentication and an org context
 router.use(protect, requireOrg);

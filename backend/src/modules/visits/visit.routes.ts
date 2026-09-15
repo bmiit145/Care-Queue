@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createVisit, getVisits, getVisitById, updateVisitStatus } from './visit.controller';
 import { protect, authorize } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

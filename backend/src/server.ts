@@ -23,7 +23,7 @@ import queueRoutes from './modules/queues/queue.routes';
 import visitRoutes from './modules/visits/visit.routes';
 import analyticsRoutes from './modules/analytics/analytics.routes';
 
-const app = express();
+const app: express.Application = express();
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);

@@ -11,7 +11,7 @@ import {
 } from './schedule.controller';
 import { protect, authorize } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

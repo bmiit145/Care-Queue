@@ -3,7 +3,7 @@ import { getPractitioners, createPractitioner, getPractitionerById, updatePracti
 import { assignDepartment, getPractitionerDepartments, removeDepartmentAssignment, getPractitionersInDepartment } from './practitionerDepartment.controller';
 import { protect, authorize, requireOrg } from '../../shared/middlewares/auth.middleware';
 
-const router = Router();
+const router: Router = Router();
 router.use(protect, requireOrg);
 
 /**
