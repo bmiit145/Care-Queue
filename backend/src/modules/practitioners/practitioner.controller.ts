@@ -1,6 +1,6 @@
-import { Response } from 'express';
+import type { Response } from 'express';
 import { Practitioner } from './practitioner.model';
-import { AuthRequest } from '../../shared/middlewares/auth.middleware';
+import type { AuthRequest } from '../../shared/middlewares/auth.middleware';
 
 export const getPractitioners = async (req: AuthRequest, res: Response): Promise<void> => {
   try {

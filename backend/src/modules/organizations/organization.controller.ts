@@ -1,4 +1,4 @@
-33import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { Organization } from './organization.model';
 
 export const createOrganization = async (req: Request, res: Response): Promise<void> => {

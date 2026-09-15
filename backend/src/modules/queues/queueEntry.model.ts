@@ -11,7 +11,8 @@ export interface IQueueEntry extends Document {
   queueId: mongoose.Types.ObjectId;
   tokenNumber: string;
   queueDate: Date;
-  status: string; // 'WAITING', 'IN_CONSULTATION', 'COMPLETED', 'SKIPPED', 'CANCELLED', 'NO_SHOW'
+  status: string; // 'WAITING' | 'IN_CONSULTATION' | 'COMPLETED' | 'SKIPPED' | 'CANCELLED' | 'NO_SHOW'
+  priority: string; // 'NORMAL' | 'HIGH' | 'EMERGENCY'
   joinedAt: Date;
   calledAt?: Date;
   completedAt?: Date;
@@ -31,10 +32,15 @@ const QueueEntrySchema = new Schema<IQueueEntry>(
     queueId: { type: Schema.Types.ObjectId, ref: 'Queue', required: true },
     tokenNumber: { type: String, required: true },
     queueDate: { type: Date, required: true, index: true },
-    status: { 
-      type: String, 
-      enum: ['WAITING', 'IN_CONSULTATION', 'COMPLETED', 'SKIPPED', 'CANCELLED', 'NO_SHOW'], 
-      default: 'WAITING' 
+    status: {
+      type: String,
+      enum: ['WAITING', 'IN_CONSULTATION', 'COMPLETED', 'SKIPPED', 'CANCELLED', 'NO_SHOW'],
+      default: 'WAITING',
+    },
+    priority: {
+      type: String,
+      enum: ['NORMAL', 'HIGH', 'EMERGENCY'],
+      default: 'NORMAL',
     },
     joinedAt: { type: Date, default: Date.now },
     calledAt: { type: Date },
