@@ -32,9 +32,6 @@ importers:
       swagger-jsdoc:
         specifier: ^6.3.0
         version: 6.3.0(openapi-types@12.1.3)
-      swagger-ui-express:
-        specifier: ^5.0.1
-        version: 5.0.1(express@5.2.1(supports-color@5.5.0))
     devDependencies:
       '@types/bcryptjs':
         specifier: ^3.0.0
@@ -54,9 +51,6 @@ importers:
       '@types/swagger-jsdoc':
         specifier: ^6.0.4
         version: 6.0.4
-      '@types/swagger-ui-express':
-        specifier: ^4.1.8
-        version: 4.1.8
       nodemon:
         specifier: ^3.1.14
         version: 3.1.14
@@ -248,9 +242,6 @@ packages:
   '@mongodb-js/saslprep@1.5.4':
     resolution: {integrity: sha512-05UC0jQsjKAOuXQ0H9Ud9vUTJpZIg+n/FinpR30tI5I8pY2inTfPOZ5OF/cg3Ce/N9MoD1xhRCeOsJtuTbFYlw==}
 
-  '@scarf/scarf@1.4.0':
-    resolution: {integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==}
-
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -302,9 +293,6 @@ packages:
 
   '@types/swagger-jsdoc@6.0.4':
     resolution: {integrity: sha512-W+Xw5epcOZrF/AooUM/PccNMSAFOKWZA5dasNyMujTwsBkU74njSJBpvCCJhHAJ95XRMzQrrW844Btu0uoetwQ==}
-
-  '@types/swagger-ui-express@4.1.8':
-    resolution: {integrity: sha512-AhZV8/EIreHFmBV5wAs0gzJUNq9JbbSXgJLQubCC0jtIo6prnI9MIRRxnU4MZX9RB9yXxF1V4R7jtLl/Wcj31g==}
 
   '@types/webidl-conversions@7.0.3':
     resolution: {integrity: sha512-CiJJvcRtIgzadHCYXw7dqEnMNRjhGZlYK05Mj9OyktqV8uVT8fD2BFOB7S1uwBE3Kj2Z+4UyPmFw/Ixgw/LAlA==}
@@ -886,15 +874,6 @@ packages:
     engines: {node: '>=20.0.0'}
     hasBin: true
 
-  swagger-ui-dist@5.32.15:
-    resolution: {integrity: sha512-TSFER+rFQlf1nzk6WvKkMaHTxAPQ3eAAxigFThnxQedSREanfZgSbJFayZVs/ULnSbNdrJOb99vLD6xpb3R3eg==}
-
-  swagger-ui-express@5.0.1:
-    resolution: {integrity: sha512-SrNU3RiBGTLLmFU8GIJdOdanJTl4TOmT27tt3bWWHppqYmAZ6IDuEuBvMU6nZq0zLEe6b/1rACXCgLZqO6ZfrA==}
-    engines: {node: '>= v0.10.32'}
-    peerDependencies:
-      express: '>=4.0.0 || >=5.0.0-beta'
-
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
@@ -1064,8 +1043,6 @@ snapshots:
     dependencies:
       sparse-bitfield: 3.0.3
 
-  '@scarf/scarf@1.4.0': {}
-
   '@standard-schema/spec@1.1.0': {}
 
   '@types/bcryptjs@3.0.0':
@@ -1127,11 +1104,6 @@ snapshots:
       '@types/node': 26.5.1
 
   '@types/swagger-jsdoc@6.0.4': {}
-
-  '@types/swagger-ui-express@4.1.8':
-    dependencies:
-      '@types/express': 5.0.6
-      '@types/serve-static': 2.2.0
 
   '@types/webidl-conversions@7.0.3': {}
 
@@ -1748,15 +1720,6 @@ snapshots:
       yaml: 2.0.0-1
     transitivePeerDependencies:
       - openapi-types
-
-  swagger-ui-dist@5.32.15:
-    dependencies:
-      '@scarf/scarf': 1.4.0
-
-  swagger-ui-express@5.0.1(express@5.2.1(supports-color@5.5.0)):
-    dependencies:
-      express: 5.2.1(supports-color@5.5.0)
-      swagger-ui-dist: 5.32.15
 
   to-regex-range@5.0.1:
     dependencies:

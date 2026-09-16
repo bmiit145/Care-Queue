@@ -2,11 +2,17 @@ import { randomUUID } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import swaggerUi from 'swagger-ui-express';
 import mongoose from 'mongoose';
 import { env } from './config/env';
 import connectDB from './config/db';
 import { swaggerSpec } from './config/swagger';
+import {
+  SWAGGER_SPEC_PATH,
+  SWAGGER_UI_CDN_ORIGIN,
+  SWAGGER_UI_INIT_PATH,
+  swaggerUiHtml,
+  swaggerUiInitJs,
+} from './config/swagger-ui';
 
 import authRoutes from './modules/auth/auth.routes';
 import organizationRoutes from './modules/organizations/organization.routes';
@@ -91,17 +97,36 @@ app.get('/health/ready', (_req, res) => {
   });
 });
 
+// The global helmet() policy above is `script-src 'self'`, which blocks the
+// CDN-hosted Swagger UI bundle. Re-run helmet on the docs page only so the rest
+// of the API keeps the stricter default.
 app.use(
   '/api-docs',
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui.min.css',
-    customJs: [
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-standalone-preset.js',
-    ],
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        'script-src': ["'self'", SWAGGER_UI_CDN_ORIGIN],
+        'style-src': ["'self'", "'unsafe-inline'", SWAGGER_UI_CDN_ORIGIN],
+        'font-src': ["'self'", 'data:', SWAGGER_UI_CDN_ORIGIN],
+        'img-src': ["'self'", 'data:'],
+        'connect-src': ["'self'"],
+      },
+    },
   })
 );
+
+app.get(SWAGGER_SPEC_PATH, (_req, res) => {
+  res.type('application/json').send(JSON.stringify(swaggerSpec));
+});
+
+app.get(SWAGGER_UI_INIT_PATH, (_req, res) => {
+  res.type('application/javascript').send(swaggerUiInitJs);
+});
+
+app.get('/api-docs', (_req, res) => {
+  res.type('text/html').send(swaggerUiHtml);
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/organizations', organizationRoutes);
