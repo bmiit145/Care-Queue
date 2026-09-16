@@ -13,6 +13,7 @@
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "admin:create": "tsx scripts/create-platform-admin.ts",
     "verify:security": "tsx scripts/verify-security.ts",
+    "orgscope:audit": "tsx scripts/audit-org-scope.ts",
     "build": "tsx scripts/generate-openapi.ts && tsc",
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
