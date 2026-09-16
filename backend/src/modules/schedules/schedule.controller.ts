@@ -13,13 +13,15 @@ import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import Schedule from './schedule.model';
 import ScheduleException from './schedule-exception.model';
 import { getAvailableSlots } from './availability.service';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 // ── Recurring schedule CRUD ───────────────────────────────────────────────────
 
 export const createSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, dayOfWeek, startTime, endTime, departmentId, locationId } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!practitionerId || dayOfWeek === undefined || !startTime || !endTime) {
       res.status(400).json({ message: 'practitionerId, dayOfWeek, startTime, and endTime are required' });
@@ -38,13 +40,13 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
 
     res.status(201).json(schedule);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating schedule', error });
+    failed(res, 'Error creating schedule', error);
   }
 };
 
 export const getSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const filter: Record<string, unknown> = { organizationId, isActive: true };
 
     if (req.query.practitionerId) filter.practitionerId = req.query.practitionerId;
@@ -58,14 +60,14 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
 
     res.status(200).json(schedules);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching schedules', error });
+    failed(res, 'Error fetching schedules', error);
   }
 };
 
 export const getPractitionerSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const schedules = await Schedule.find({ organizationId, practitionerId: practitionerId as string, isActive: true })
       .sort({ dayOfWeek: 1, startTime: 1 });
@@ -78,14 +80,14 @@ export const getPractitionerSchedule = async (req: AuthRequest, res: Response): 
 
     res.status(200).json({ schedules, exceptions });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching schedule', error });
+    failed(res, 'Error fetching schedule', error);
   }
 };
 
 export const updateSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const schedule = await Schedule.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -95,14 +97,14 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     }
     res.status(200).json(schedule);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating schedule', error });
+    failed(res, 'Error updating schedule', error);
   }
 };
 
 export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const schedule = await Schedule.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       { isActive: false },
       { new: true }
     );
@@ -112,7 +114,7 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
     }
     res.status(200).json({ message: 'Schedule deactivated', schedule });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting schedule', error });
+    failed(res, 'Error deleting schedule', error);
   }
 };
 
@@ -121,7 +123,7 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
 export const createScheduleException = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, date, reason, isAvailable, startTime, endTime } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!practitionerId || !date || !reason || isAvailable === undefined) {
       res.status(400).json({ message: 'practitionerId, date, reason, and isAvailable are required' });
@@ -140,13 +142,13 @@ export const createScheduleException = async (req: AuthRequest, res: Response): 
 
     res.status(201).json(exception);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating schedule exception', error });
+    failed(res, 'Error creating schedule exception', error);
   }
 };
 
 export const getScheduleExceptions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const filter: Record<string, unknown> = { organizationId };
 
     if (req.query.practitionerId) filter.practitionerId = req.query.practitionerId;
@@ -157,7 +159,7 @@ export const getScheduleExceptions = async (req: AuthRequest, res: Response): Pr
 
     res.status(200).json(exceptions);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching schedule exceptions', error });
+    failed(res, 'Error fetching schedule exceptions', error);
   }
 };
 
@@ -173,7 +175,7 @@ export const getScheduleExceptions = async (req: AuthRequest, res: Response): Pr
 export const getAvailability = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId, date, slotDurationMin } = req.query as Record<string, string>;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!practitionerId || !date) {
       res.status(400).json({ message: 'practitionerId and date are required query params' });
@@ -187,7 +189,7 @@ export const getAvailability = async (req: AuthRequest, res: Response): Promise<
     }
 
     const slots = await getAvailableSlots({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       practitionerId,
       date: targetDate,
       slotDurationMin: slotDurationMin ? parseInt(slotDurationMin, 10) : 15,
@@ -195,6 +197,6 @@ export const getAvailability = async (req: AuthRequest, res: Response): Promise<
 
     res.status(200).json({ date, practitionerId, slots });
   } catch (error) {
-    res.status(500).json({ message: 'Error computing availability', error });
+    failed(res, 'Error computing availability', error);
   }
 };

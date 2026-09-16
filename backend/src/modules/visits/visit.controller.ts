@@ -17,6 +17,9 @@ import { Appointment } from '../appointments/appointment.model';
 import { QueueEntry } from '../queues/queueEntry.model';
 import { notificationService } from '../../shared/notifications/notification.service';
 import { AuditService } from '../../shared/audit/audit.service';
+import { syncAppointmentStatus } from '../appointments/appointment.service';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 // ── State machine ─────────────────────────────────────────────────────────────
 
@@ -48,7 +51,7 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
       appointmentId, patientId, practitionerId, departmentId,
       serviceId, locationId, checkInId, queueEntryId,
     } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!patientId) {
       res.status(400).json({ message: 'patientId is required' });
@@ -102,7 +105,7 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
     });
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'CREATE',
@@ -114,7 +117,7 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
 
     res.status(201).json(visit);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating visit', error });
+    failed(res, 'Error creating visit', error);
   }
 };
 
@@ -124,7 +127,7 @@ export const createVisit = async (req: AuthRequest, res: Response): Promise<void
  */
 export const getVisits = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const filter: Record<string, unknown> = { organizationId };
 
     if (req.query.patientId)       filter.patientId       = req.query.patientId;
@@ -146,7 +149,7 @@ export const getVisits = async (req: AuthRequest, res: Response): Promise<void> 
 
     res.status(200).json(visits);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching visits', error });
+    failed(res, 'Error fetching visits', error);
   }
 };
 
@@ -156,7 +159,7 @@ export const getVisits = async (req: AuthRequest, res: Response): Promise<void> 
 export const getVisitById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const visit = await Visit.findOne({ _id: id, organizationId })
       .populate('patientId', 'firstName lastName contactPhone')
@@ -172,7 +175,7 @@ export const getVisitById = async (req: AuthRequest, res: Response): Promise<voi
     }
     res.status(200).json(visit);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching visit', error });
+    failed(res, 'Error fetching visit', error);
   }
 };
 
@@ -184,7 +187,7 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!status) {
       res.status(400).json({ message: 'status is required' });
@@ -211,7 +214,7 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
     await visit.save();
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'STATUS_CHANGE',
@@ -224,10 +227,7 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
     // Sync related entities when visit completes
     if (status === 'COMPLETED') {
       if (visit.appointmentId) {
-        await Appointment.findOneAndUpdate(
-          { _id: visit.appointmentId, organizationId },
-          { status: 'COMPLETED' }
-        );
+        await syncAppointmentStatus(visit.appointmentId.toString(), organizationId, 'COMPLETED');
       }
       if (visit.queueEntryId) {
         await QueueEntry.findOneAndUpdate(
@@ -245,7 +245,7 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
     if (eventMap[status]) {
       notificationService.notify({
         event:          eventMap[status],
-        organizationId: organizationId!.toString(),
+        organizationId: organizationId,
         patientId:      visit.patientId.toString(),
         practitionerId: visit.practitionerId?.toString(),
         context:        { visitId: id, status },
@@ -254,6 +254,6 @@ export const updateVisitStatus = async (req: AuthRequest, res: Response): Promis
 
     res.status(200).json(visit);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating visit', error });
+    failed(res, 'Error updating visit', error);
   }
 };

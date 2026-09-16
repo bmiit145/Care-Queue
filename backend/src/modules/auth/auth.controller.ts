@@ -2,18 +2,25 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, UserRole } from '../users/user.model';
+import { env } from '../../config/env';
+import type { AuthRequest } from '../../shared/middlewares/auth.middleware';
+import { failed } from '../../shared/http/respond';
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
 /**
  * Generate a signed JWT embedding id, role, and organizationId.
  * organizationId is critical for tenant isolation on every subsequent request.
+ *
+ * Signs with `env.jwtSecret` — the same value `protect` verifies with, and the
+ * only one validated at boot for length. Reading process.env directly here
+ * meant sign and verify could diverge, behind a 'changeme_in_production'
+ * fallback that would have silently accepted a trivially forgeable secret.
  */
 const generateToken = (id: string, role: UserRole, organizationId?: string): string => {
-  const secret = process.env.JWT_SECRET || 'changeme_in_production';
   return jwt.sign(
     { id, role, organizationId },
-    secret,
+    env.jwtSecret,
     { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
   );
 };
@@ -23,18 +30,21 @@ const generateToken = (id: string, role: UserRole, organizationId?: string): str
 // ─────────────────────────────────────────
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      firstName,
-      lastName,
-      email,
-      password,
-      phone,
-      role,
-      organizationId,
-    } = req.body;
+    const { firstName, lastName, email, password, phone } = req.body;
+
+    // `role` and `organizationId` are deliberately NOT read from the body.
+    // This endpoint is unauthenticated, so honouring them let any caller mint
+    // themselves a PLATFORM_ADMIN token, or attach to an arbitrary tenant.
+    // Privileged accounts are created through POST /api/users by an existing
+    // admin; the first PLATFORM_ADMIN comes from scripts/create-platform-admin.ts.
 
     if (!firstName || !lastName || !email || !password) {
       res.status(400).json({ message: 'firstName, lastName, email, and password are required' });
+      return;
+    }
+
+    if (typeof password !== 'string' || password.length < 8) {
+      res.status(400).json({ message: 'password must be at least 8 characters long' });
       return;
     }
 
@@ -47,16 +57,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const assignedRole: UserRole = role || 'PATIENT';
-
     const user = await User.create({
       firstName,
       lastName,
       email: email.toLowerCase(),
       passwordHash,
       phone,
-      role: assignedRole,
-      organizationId: organizationId || undefined,
+      role: 'PATIENT' satisfies UserRole,
       isActive: true,
     });
 
@@ -74,7 +81,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       ),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Registration failed', error });
+    failed(res, 'Registration failed', error);
   }
 };
 
@@ -116,22 +123,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       ),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Login failed', error });
+    failed(res, 'Login failed', error);
   }
 };
 
 // ─────────────────────────────────────────
 // GET /api/auth/me
 // ─────────────────────────────────────────
-export const getMe = async (req: any, res: Response): Promise<void> => {
+export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.user.id).select('-passwordHash').lean();
+    const user = await User.findById(req.user!.id).select('-passwordHash').lean();
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
     }
     res.status(200).json(user);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch profile', error });
+    failed(res, 'Failed to fetch profile', error);
   }
 };

@@ -22,6 +22,9 @@ import { CheckIn } from '../check-ins/checkIn.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import { notificationService } from '../../shared/notifications/notification.service';
 import { AuditService } from '../../shared/audit/audit.service';
+import { syncAppointmentStatus } from '../appointments/appointment.service';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 // ── State machine ─────────────────────────────────────────────────────────────
 
@@ -72,7 +75,7 @@ async function getAvgServiceDuration(queueId: string, orgId: string): Promise<nu
 export const createQueue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, departmentId, locationId, practitionerId, serviceId, queueDate } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!name) {
       res.status(400).json({ message: 'name is required' });
@@ -93,7 +96,7 @@ export const createQueue = async (req: AuthRequest, res: Response): Promise<void
 
     res.status(201).json(queue);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating queue', error });
+    failed(res, 'Error creating queue', error);
   }
 };
 
@@ -104,7 +107,7 @@ export const createQueue = async (req: AuthRequest, res: Response): Promise<void
  */
 export const getQueues = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const filter: Record<string, unknown> = { organizationId, isActive: true };
 
     if (req.query.departmentId)   filter.departmentId   = req.query.departmentId;
@@ -124,7 +127,7 @@ export const getQueues = async (req: AuthRequest, res: Response): Promise<void> 
 
     res.status(200).json(queues);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching queues', error });
+    failed(res, 'Error fetching queues', error);
   }
 };
 
@@ -135,7 +138,7 @@ export const getQueues = async (req: AuthRequest, res: Response): Promise<void> 
 export const getQueueEntries = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { queueId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const queue = await Queue.findOne({ _id: queueId, organizationId });
     if (!queue) {
@@ -147,7 +150,7 @@ export const getQueueEntries = async (req: AuthRequest, res: Response): Promise<
       .populate('patientId', 'firstName lastName contactPhone')
       .sort({ tokenNumber: 1 });
 
-    const avgDurationMs = await getAvgServiceDuration(queueId as string, organizationId!.toString());
+    const avgDurationMs = await getAvgServiceDuration(queueId as string, organizationId);
 
     // Annotate each WAITING entry with position + ETA
     let waitingPosition = 0;
@@ -163,7 +166,7 @@ export const getQueueEntries = async (req: AuthRequest, res: Response): Promise<
 
     res.status(200).json(annotated);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching queue entries', error });
+    failed(res, 'Error fetching queue entries', error);
   }
 };
 
@@ -175,7 +178,7 @@ export const getQueueEntries = async (req: AuthRequest, res: Response): Promise<
 export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { queueId, patientId, appointmentId, checkInId, priority } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!queueId || !patientId) {
       res.status(400).json({ message: 'queueId and patientId are required' });
@@ -253,14 +256,11 @@ export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> 
 
     // Update appointment status → IN_QUEUE
     if (appointmentId) {
-      await Appointment.findOneAndUpdate(
-        { _id: appointmentId, organizationId },
-        { status: 'IN_QUEUE' }
-      );
+      await syncAppointmentStatus(appointmentId, organizationId, 'IN_QUEUE');
     }
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'CREATE',
@@ -272,14 +272,14 @@ export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> 
 
     notificationService.notify({
       event: 'QUEUE_JOINED',
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       patientId,
       context: { queueId, tokenNumber, queueName: queue.name },
     });
 
     res.status(201).json(entry);
   } catch (error) {
-    res.status(500).json({ message: 'Error joining queue', error });
+    failed(res, 'Error joining queue', error);
   }
 };
 
@@ -291,7 +291,7 @@ export const joinQueue = async (req: AuthRequest, res: Response): Promise<void> 
 export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { queueId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     // Ensure the queue belongs to this org
     const queue = await Queue.findOne({ _id: queueId, organizationId });
@@ -325,7 +325,7 @@ export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<
     await next.save();
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'STATUS_CHANGE',
@@ -337,22 +337,19 @@ export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<
 
     // Sync appointment
     if (next.appointmentId) {
-      await Appointment.findOneAndUpdate(
-        { _id: next.appointmentId, organizationId },
-        { status: 'IN_CONSULTATION' }
-      );
+      await syncAppointmentStatus(next.appointmentId.toString(), organizationId, 'IN_CONSULTATION');
     }
 
     notificationService.notify({
       event: 'PATIENT_CALLED',
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       patientId: next.patientId.toString(),
       context: { queueId, tokenNumber: next.tokenNumber },
     });
 
     res.status(200).json(next);
   } catch (error) {
-    res.status(500).json({ message: 'Error calling next patient', error });
+    failed(res, 'Error calling next patient', error);
   }
 };
 
@@ -363,7 +360,7 @@ export const callNextInQueue = async (req: AuthRequest, res: Response): Promise<
 export const recallEntry = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { entryId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const entry = await QueueEntry.findOne({ _id: entryId, organizationId });
     if (!entry) {
@@ -382,7 +379,7 @@ export const recallEntry = async (req: AuthRequest, res: Response): Promise<void
     await entry.save();
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'STATUS_CHANGE',
@@ -394,14 +391,14 @@ export const recallEntry = async (req: AuthRequest, res: Response): Promise<void
 
     notificationService.notify({
       event: 'PATIENT_RECALLED',
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       patientId: entry.patientId.toString(),
       context: { entryId, tokenNumber: entry.tokenNumber },
     });
 
     res.status(200).json(entry);
   } catch (error) {
-    res.status(500).json({ message: 'Error recalling patient', error });
+    failed(res, 'Error recalling patient', error);
   }
 };
 
@@ -414,7 +411,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
   try {
     const { entryId } = req.params;
     const { status }  = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!status) {
       res.status(400).json({ message: 'status is required' });
@@ -441,7 +438,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
     await entry.save();
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'STATUS_CHANGE',
@@ -460,10 +457,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
         CANCELLED:       'CANCELLED',
       };
       if (apptStatusMap[status]) {
-        await Appointment.findOneAndUpdate(
-          { _id: entry.appointmentId, organizationId },
-          { status: apptStatusMap[status] }
-        );
+        await syncAppointmentStatus(entry.appointmentId.toString(), organizationId, apptStatusMap[status]!);
       }
     }
 
@@ -476,7 +470,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
     if (notifMap[status]) {
       notificationService.notify({
         event: notifMap[status],
-        organizationId: organizationId!.toString(),
+        organizationId: organizationId,
         patientId: entry.patientId.toString(),
         context: { entryId, tokenNumber: entry.tokenNumber },
       });
@@ -484,7 +478,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
 
     res.status(200).json(entry);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating queue entry', error });
+    failed(res, 'Error updating queue entry', error);
   }
 };
 
@@ -496,7 +490,7 @@ export const updateQueueEntryStatus = async (req: AuthRequest, res: Response): P
 export const getQueuePosition = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { entryId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const entry = await QueueEntry.findOne({ _id: entryId, organizationId });
     if (!entry) {
@@ -518,7 +512,7 @@ export const getQueuePosition = async (req: AuthRequest, res: Response): Promise
     });
 
     const position = ahead + 1;
-    const avgDurationMs = await getAvgServiceDuration(entry.queueId.toString(), organizationId!.toString());
+    const avgDurationMs = await getAvgServiceDuration(entry.queueId.toString(), organizationId);
 
     res.status(200).json({
       tokenNumber: entry.tokenNumber,
@@ -528,6 +522,6 @@ export const getQueuePosition = async (req: AuthRequest, res: Response): Promise
       estimatedWaitMin: Math.ceil((position * avgDurationMs) / 60000),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching queue position', error });
+    failed(res, 'Error fetching queue position', error);
   }
 };

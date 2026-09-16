@@ -15,6 +15,8 @@ import { Appointment } from '../appointments/appointment.model';
 import { CheckIn } from '../check-ins/checkIn.model';
 import { QueueEntry } from '../queues/queueEntry.model';
 import { Visit } from '../visits/visit.model';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 /** Midnight → 23:59:59 for today */
 function todayRange(): { start: Date; end: Date } {
@@ -51,7 +53,7 @@ export const getDashboardOverview = async (req: AuthRequest, res: Response): Pro
       return;
     }
 
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const { start, end } = todayRange();
 
     // ── Today's appointment breakdown ────────────────────────────────────────
@@ -139,7 +141,7 @@ export const getDashboardOverview = async (req: AuthRequest, res: Response): Pro
       },
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching analytics overview', error });
+    failed(res, 'Error fetching analytics overview', error);
   }
 };
 
@@ -149,7 +151,7 @@ export const getDashboardOverview = async (req: AuthRequest, res: Response): Pro
 
 export const getQueuePerformance = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const days = parseInt((req.query.days as string) || '7', 10);
 
     const since = new Date();
@@ -183,6 +185,6 @@ export const getQueuePerformance = async (req: AuthRequest, res: Response): Prom
       avgConsultMin:   Math.round(avgConsultMs / 60000),
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching queue performance', error });
+    failed(res, 'Error fetching queue performance', error);
   }
 };

@@ -1,7 +1,10 @@
 import { Response } from 'express';
 import { User, USER_ROLES } from '../users/user.model';
+import { Organization } from '../organizations/organization.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import bcrypt from 'bcryptjs';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 /**
  * GET /api/users
@@ -11,12 +14,12 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const filter: any = { isActive: true };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = (req.user!.organizationId as string);
+      filter.organizationId = orgIdOf(req);
     }
     const users = await User.find(filter).select('-passwordHash').sort({ lastName: 1 });
     res.status(200).json(users);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch users', error });
+    failed(res, 'Failed to fetch users', error);
   }
 };
 
@@ -38,30 +41,53 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    // updateUser already blocked this; createUser did not, which let an
+    // ORG_ADMIN mint a PLATFORM_ADMIN account and then log in as it.
+    if (role === 'PLATFORM_ADMIN' && req.user!.role !== 'PLATFORM_ADMIN') {
+      res.status(403).json({ message: 'Cannot assign PLATFORM_ADMIN role' });
+      return;
+    }
+
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
       res.status(400).json({ message: 'A user with this email already exists' });
       return;
     }
 
-    // ORG_ADMIN can only create users in their own org
-    const assignedOrgId =
-      req.user!.role === 'PLATFORM_ADMIN'
-        ? organizationId || (req.user!.organizationId as string)
-        : (req.user!.organizationId as string);
+    // A PLATFORM_ADMIN may place the user in any organization, or in none at
+    // all when creating another platform-level account. Everyone else is
+    // pinned to their own tenant regardless of what the body asked for.
+    let assignedOrgId: string | undefined;
+
+    if (req.user!.role === 'PLATFORM_ADMIN') {
+      if (organizationId) {
+        const org = await Organization.findById(organizationId).select('_id').lean();
+        if (!org) {
+          res.status(400).json({ message: 'organizationId does not reference an existing organization' });
+          return;
+        }
+        assignedOrgId = organizationId;
+      }
+    } else {
+      assignedOrgId = orgIdOf(req);
+    }
 
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const user = await User.create({
+    // Built conditionally: exactOptionalPropertyTypes forbids handing Mongoose
+    // an explicit `organizationId: undefined` for a platform-level account.
+    const userPayload: Record<string, unknown> = {
       firstName,
       lastName,
       email: email.toLowerCase(),
       passwordHash,
       phone,
       role,
-      organizationId: assignedOrgId,
-    });
+    };
+    if (assignedOrgId) userPayload.organizationId = assignedOrgId;
+
+    const user = await User.create(userPayload);
 
     res.status(201).json({
       _id:            user._id,
@@ -72,7 +98,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       organizationId: user.organizationId,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create user', error });
+    failed(res, 'Failed to create user', error);
   }
 };
 
@@ -83,7 +109,7 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
   try {
     const filter: any = { _id: req.params.id };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = (req.user!.organizationId as string);
+      filter.organizationId = orgIdOf(req);
     }
     const user = await User.findOne(filter).select('-passwordHash');
     if (!user) {
@@ -92,7 +118,7 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
     }
     res.status(200).json(user);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch user', error });
+    failed(res, 'Failed to fetch user', error);
   }
 };
 
@@ -109,7 +135,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 
     const filter: any = { _id: req.params.id };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = (req.user!.organizationId as string);
+      filter.organizationId = orgIdOf(req);
     }
 
     const { firstName, lastName, phone, role, isActive } = req.body;
@@ -125,7 +151,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(200).json(user);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update user', error });
+    failed(res, 'Failed to update user', error);
   }
 };
 
@@ -136,7 +162,7 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   try {
     const filter: any = { _id: req.params.id };
     if (req.user!.role !== 'PLATFORM_ADMIN') {
-      filter.organizationId = (req.user!.organizationId as string);
+      filter.organizationId = orgIdOf(req);
     }
     const user = await User.findOneAndUpdate(filter, { isActive: false }, { new: true }).select('-passwordHash');
     if (!user) {
@@ -145,6 +171,6 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(200).json({ message: 'User deactivated', user });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to deactivate user', error });
+    failed(res, 'Failed to deactivate user', error);
   }
 };

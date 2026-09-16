@@ -12,6 +12,8 @@ import { Response } from 'express';
 import { PractitionerDepartment } from './practitionerDepartment.model';
 import { Practitioner } from './practitioner.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 // ── Assign practitioner → department ─────────────────────────────────────────
 
@@ -19,7 +21,7 @@ export const assignDepartment = async (req: AuthRequest, res: Response): Promise
   try {
     const { id: practitionerId } = req.params;
     const { departmentId, serviceIds, slotDurationMin } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!departmentId) {
       res.status(400).json({ message: 'departmentId is required' });
@@ -42,7 +44,7 @@ export const assignDepartment = async (req: AuthRequest, res: Response): Promise
 
     res.status(200).json(assignment);
   } catch (error) {
-    res.status(500).json({ message: 'Error assigning department', error });
+    failed(res, 'Error assigning department', error);
   }
 };
 
@@ -51,7 +53,7 @@ export const assignDepartment = async (req: AuthRequest, res: Response): Promise
 export const getPractitionerDepartments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: practitionerId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const assignments = await PractitionerDepartment.find({
       organizationId,
@@ -63,7 +65,7 @@ export const getPractitionerDepartments = async (req: AuthRequest, res: Response
 
     res.status(200).json(assignments);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching practitioner departments', error });
+    failed(res, 'Error fetching practitioner departments', error);
   }
 };
 
@@ -72,7 +74,7 @@ export const getPractitionerDepartments = async (req: AuthRequest, res: Response
 export const removeDepartmentAssignment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: practitionerId, deptId: departmentId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const result = await PractitionerDepartment.findOneAndUpdate(
       { organizationId, practitionerId: practitionerId as string, departmentId: departmentId as string },
@@ -87,7 +89,7 @@ export const removeDepartmentAssignment = async (req: AuthRequest, res: Response
 
     res.status(200).json({ message: 'Department assignment removed', result });
   } catch (error) {
-    res.status(500).json({ message: 'Error removing department assignment', error });
+    failed(res, 'Error removing department assignment', error);
   }
 };
 
@@ -96,7 +98,7 @@ export const removeDepartmentAssignment = async (req: AuthRequest, res: Response
 export const getPractitionersInDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { deptId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     const assignments = await PractitionerDepartment.find({
       organizationId,
@@ -108,6 +110,6 @@ export const getPractitionersInDepartment = async (req: AuthRequest, res: Respon
 
     res.status(200).json(assignments);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching practitioners in department', error });
+    failed(res, 'Error fetching practitioners in department', error);
   }
 };

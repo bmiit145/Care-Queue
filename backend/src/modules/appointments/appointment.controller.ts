@@ -3,7 +3,7 @@
  *
  * Architecture compliance:
  *  ✅ All queries scoped to organizationId (tenant isolation)
- *  ✅ State machine enforced (VALID_TRANSITIONS)
+ *  ✅ State machine enforced via ./appointment.service
  *  ✅ Notification events emitted on every status change
  *  ✅ Cross-entity: patient validated when creating appointment
  *  ✅ No SUPER_ADMIN — standardized roles only
@@ -16,20 +16,9 @@ import { Patient } from '../patients/patient.model';
 import { PractitionerDepartment } from '../practitioners/practitionerDepartment.model';
 import { notificationService } from '../../shared/notifications/notification.service';
 import { AuditService } from '../../shared/audit/audit.service';
-
-// ── State machine ─────────────────────────────────────────────────────────────
-
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  BOOKED:          ['CONFIRMED', 'CANCELLED', 'RESCHEDULED', 'NO_SHOW'],
-  CONFIRMED:       ['CHECKED_IN', 'CANCELLED', 'RESCHEDULED', 'NO_SHOW'],
-  CHECKED_IN:      ['IN_QUEUE', 'CANCELLED', 'NO_SHOW'],
-  IN_QUEUE:        ['IN_CONSULTATION', 'CANCELLED', 'NO_SHOW'],
-  IN_CONSULTATION: ['COMPLETED'],
-  COMPLETED:       [],
-  CANCELLED:       [],
-  NO_SHOW:         [],
-  RESCHEDULED:     ['BOOKED'],  // Rescheduled can re-enter as BOOKED
-};
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { allowedNextStatuses, canTransition } from './appointment.service';
+import { failed } from '../../shared/http/respond';
 
 // ── Controllers ───────────────────────────────────────────────────────────────
 
@@ -42,7 +31,7 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
       patientId, practitionerId, departmentId, serviceId,
       locationId, date, scheduledStartTime, scheduledEndTime, source,
     } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!patientId || !date) {
       res.status(400).json({ message: 'patientId and date are required' });
@@ -94,7 +83,7 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
 
     // Fire audit event
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'CREATE',
@@ -106,14 +95,14 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
 
     notificationService.notify({
       event:          'APPOINTMENT_BOOKED',
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       patientId,
       context:        { appointmentId: appointment._id, date, source },
     });
 
     res.status(201).json(appointment);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating appointment', error });
+    failed(res, 'Error creating appointment', error);
   }
 };
 
@@ -123,9 +112,23 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
  */
 export const getMyAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
+
+    // `patientId` references the Patient collection, not User. Filtering by
+    // req.user.id compared a User._id against a Patient._id and so could never
+    // match — this endpoint always returned []. Resolve the caller's patient
+    // record first.
+    const patient = await Patient.findOne({ organizationId, userId: req.user!.id })
+      .select('_id')
+      .lean();
+
+    if (!patient) {
+      res.status(200).json([]);
+      return;
+    }
+
     const appointments = await Appointment.find({
-      patientId: req.user!.id,
+      patientId: patient._id,
       organizationId,
     })
       .populate('practitionerId', 'firstName lastName type')
@@ -135,7 +138,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response): Promis
 
     res.status(200).json(appointments);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching appointments', error });
+    failed(res, 'Error fetching appointments', error);
   }
 };
 
@@ -145,7 +148,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response): Promis
  */
 export const getAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const filter: Record<string, unknown> = { organizationId };
 
     if (req.query.date) {
@@ -168,7 +171,7 @@ export const getAppointments = async (req: AuthRequest, res: Response): Promise<
 
     res.status(200).json(appointments);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching appointments', error });
+    failed(res, 'Error fetching appointments', error);
   }
 };
 
@@ -179,7 +182,7 @@ export const getAppointmentById = async (req: AuthRequest, res: Response): Promi
   try {
     const appointment = await Appointment.findOne({
       _id: req.params.id,
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
     })
       .populate('patientId', 'firstName lastName contactPhone')
       .populate('practitionerId', 'firstName lastName type')
@@ -192,7 +195,7 @@ export const getAppointmentById = async (req: AuthRequest, res: Response): Promi
     }
     res.status(200).json(appointment);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching appointment', error });
+    failed(res, 'Error fetching appointment', error);
   }
 };
 
@@ -202,7 +205,7 @@ export const getAppointmentById = async (req: AuthRequest, res: Response): Promi
 export const getPractitionerAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { practitionerId } = req.params;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const filter: Record<string, unknown> = { practitionerId, organizationId };
 
     if (req.query.date) {
@@ -218,7 +221,7 @@ export const getPractitionerAppointments = async (req: AuthRequest, res: Respons
 
     res.status(200).json(appointments);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching appointments', error });
+    failed(res, 'Error fetching appointments', error);
   }
 };
 
@@ -230,7 +233,7 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!status) {
       res.status(400).json({ message: 'status is required' });
@@ -243,8 +246,8 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
       return;
     }
 
-    const validNext = VALID_TRANSITIONS[appointment.status] ?? [];
-    if (!validNext.includes(status)) {
+    const validNext = allowedNextStatuses(appointment.status);
+    if (!canTransition(appointment.status, status)) {
       res.status(400).json({
         message: `Invalid transition: ${appointment.status} → ${status}`,
         allowedTransitions: validNext,
@@ -258,7 +261,7 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
 
     // Fire audit log for state transition
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'STATUS_CHANGE',
@@ -277,7 +280,7 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
     if (eventMap[status]) {
       notificationService.notify({
         event:          eventMap[status],
-        organizationId: organizationId!.toString(),
+        organizationId: organizationId,
         patientId:      appointment.patientId.toString(),
         context:        { appointmentId: id, status },
       });
@@ -285,7 +288,7 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
 
     res.status(200).json(appointment);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating appointment', error });
+    failed(res, 'Error updating appointment', error);
   }
 };
 
@@ -295,15 +298,14 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
  */
 export const cancelAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const appointment = await Appointment.findOne({ _id: req.params.id, organizationId });
     if (!appointment) {
       res.status(404).json({ message: 'Appointment not found' });
       return;
     }
 
-    const validNext = VALID_TRANSITIONS[appointment.status] ?? [];
-    if (!validNext.includes('CANCELLED')) {
+    if (!canTransition(appointment.status, 'CANCELLED')) {
       res.status(400).json({ message: `Cannot cancel an appointment in status: ${appointment.status}` });
       return;
     }
@@ -313,7 +315,7 @@ export const cancelAppointment = async (req: AuthRequest, res: Response): Promis
     await appointment.save();
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'CANCEL',
@@ -325,13 +327,13 @@ export const cancelAppointment = async (req: AuthRequest, res: Response): Promis
 
     notificationService.notify({
       event:          'APPOINTMENT_CANCELLED',
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       patientId:      appointment.patientId.toString(),
       context:        { appointmentId: appointment._id },
     });
 
     res.status(200).json({ message: 'Appointment cancelled', appointment });
   } catch (error) {
-    res.status(500).json({ message: 'Error cancelling appointment', error });
+    failed(res, 'Error cancelling appointment', error);
   }
 };

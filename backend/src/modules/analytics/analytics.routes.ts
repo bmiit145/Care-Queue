@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { getDashboardOverview, getQueuePerformance } from './analytics.controller';
-import { protect, authorize } from '../../shared/middlewares/auth.middleware';
+import { protect, authorize, requireOrg } from '../../shared/middlewares/auth.middleware';
 
 const router: Router = Router();
-router.use(protect);
+router.use(protect, requireOrg);
 
 /**
  * @swagger

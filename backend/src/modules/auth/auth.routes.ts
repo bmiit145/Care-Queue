@@ -15,14 +15,17 @@ const router: Router = Router();
  * @swagger
  * /auth/register:
  *   post:
- *     summary: Register a new user
+ *     summary: Self-service patient sign-up
  *     description: |
- *       Creates a user with a role. Role must be one of:
- *       PLATFORM_ADMIN | ORG_ADMIN | RECEPTIONIST | PRACTITIONER | STAFF | PATIENT
+ *       Public endpoint. Always creates a PATIENT with no organization.
  *
- *       When organizationId is provided the user is scoped to that tenant.
- *       All subsequent requests by this user will be automatically filtered
- *       to that organization (tenant isolation).
+ *       `role` and `organizationId` are ignored if sent. Because this endpoint
+ *       is unauthenticated, honouring them would let any caller mint a
+ *       PLATFORM_ADMIN token or attach themselves to an arbitrary tenant.
+ *
+ *       Staff and administrator accounts are created by an existing admin via
+ *       `POST /api/users`. The first PLATFORM_ADMIN is created out-of-band with
+ *       `pnpm admin:create`.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -32,21 +35,16 @@ const router: Router = Router();
  *             type: object
  *             required: [firstName, lastName, email, password]
  *             properties:
- *               firstName:      { type: string, example: "Rahul" }
- *               lastName:       { type: string, example: "Patel" }
- *               email:          { type: string, format: email }
- *               password:       { type: string, minLength: 8 }
- *               phone:          { type: string }
- *               role:
- *                 type: string
- *                 enum: [PLATFORM_ADMIN, ORG_ADMIN, RECEPTIONIST, PRACTITIONER, STAFF, PATIENT]
- *                 default: PATIENT
- *               organizationId: { type: string, description: "Required for org-scoped roles" }
+ *               firstName: { type: string, example: "Rahul" }
+ *               lastName:  { type: string, example: "Patel" }
+ *               email:     { type: string, format: email }
+ *               password:  { type: string, minLength: 8 }
+ *               phone:     { type: string }
  *     responses:
  *       201:
- *         description: User registered — returns user object and JWT token
+ *         description: Patient registered — returns user object and JWT token
  *       400:
- *         description: Validation error or email already exists
+ *         description: Validation error, weak password, or email already exists
  */
 router.post('/register', register);
 

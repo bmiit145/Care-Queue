@@ -1,17 +1,19 @@
 import { Response } from 'express';
 import { Location } from './location.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 // GET /api/locations — org-scoped list
 export const getLocations = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const locations = await Location.find({
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
       isActive: true,
     }).sort({ name: 1 });
     res.status(200).json(locations);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch locations', error });
+    failed(res, 'Failed to fetch locations', error);
   }
 };
 
@@ -24,7 +26,7 @@ export const createLocation = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
     const location = await Location.create({
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
       name,
       type,
       address,
@@ -33,7 +35,7 @@ export const createLocation = async (req: AuthRequest, res: Response): Promise<v
     });
     res.status(201).json(location);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create location', error });
+    failed(res, 'Failed to create location', error);
   }
 };
 
@@ -42,7 +44,7 @@ export const getLocationById = async (req: AuthRequest, res: Response): Promise<
   try {
     const location = await Location.findOne({
       _id: req.params.id,
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
     });
     if (!location) {
       res.status(404).json({ message: 'Location not found' });
@@ -50,7 +52,7 @@ export const getLocationById = async (req: AuthRequest, res: Response): Promise<
     }
     res.status(200).json(location);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch location', error });
+    failed(res, 'Failed to fetch location', error);
   }
 };
 
@@ -58,7 +60,7 @@ export const getLocationById = async (req: AuthRequest, res: Response): Promise<
 export const updateLocation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const location = await Location.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -68,7 +70,7 @@ export const updateLocation = async (req: AuthRequest, res: Response): Promise<v
     }
     res.status(200).json(location);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update location', error });
+    failed(res, 'Failed to update location', error);
   }
 };
 
@@ -76,7 +78,7 @@ export const updateLocation = async (req: AuthRequest, res: Response): Promise<v
 export const deleteLocation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const location = await Location.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       { isActive: false },
       { new: true }
     );
@@ -86,6 +88,6 @@ export const deleteLocation = async (req: AuthRequest, res: Response): Promise<v
     }
     res.status(200).json({ message: 'Location deactivated', location });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete location', error });
+    failed(res, 'Failed to delete location', error);
   }
 };

@@ -1,16 +1,18 @@
 import { Response } from 'express';
 import { Department } from './department.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 export const getDepartments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const departments = await Department.find({
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
       isActive: true,
     }).populate('locationId', 'name').sort({ name: 1 });
     res.status(200).json(departments);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch departments', error });
+    failed(res, 'Failed to fetch departments', error);
   }
 };
 
@@ -22,14 +24,14 @@ export const createDepartment = async (req: AuthRequest, res: Response): Promise
       return;
     }
     const department = await Department.create({
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
       name,
       description,
       locationId,
     });
     res.status(201).json(department);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create department', error });
+    failed(res, 'Failed to create department', error);
   }
 };
 
@@ -37,7 +39,7 @@ export const getDepartmentById = async (req: AuthRequest, res: Response): Promis
   try {
     const department = await Department.findOne({
       _id: req.params.id,
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
     }).populate('locationId', 'name address');
     if (!department) {
       res.status(404).json({ message: 'Department not found' });
@@ -45,14 +47,14 @@ export const getDepartmentById = async (req: AuthRequest, res: Response): Promis
     }
     res.status(200).json(department);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch department', error });
+    failed(res, 'Failed to fetch department', error);
   }
 };
 
 export const updateDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const department = await Department.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -62,14 +64,14 @@ export const updateDepartment = async (req: AuthRequest, res: Response): Promise
     }
     res.status(200).json(department);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update department', error });
+    failed(res, 'Failed to update department', error);
   }
 };
 
 export const deleteDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const department = await Department.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       { isActive: false },
       { new: true }
     );
@@ -79,6 +81,6 @@ export const deleteDepartment = async (req: AuthRequest, res: Response): Promise
     }
     res.status(200).json({ message: 'Department deactivated', department });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete department', error });
+    failed(res, 'Failed to delete department', error);
   }
 };

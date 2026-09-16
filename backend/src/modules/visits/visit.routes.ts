@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { createVisit, getVisits, getVisitById, updateVisitStatus } from './visit.controller';
-import { protect, authorize } from '../../shared/middlewares/auth.middleware';
+import { protect, authorize, requireOrg } from '../../shared/middlewares/auth.middleware';
 
 const router: Router = Router();
+
+// Every route below is organization-scoped. requireOrg rejects a caller with no
+// tenant before any handler can build a filter that would resolve to "all rows".
+router.use(protect, requireOrg);
 
 /**
  * @swagger

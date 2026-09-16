@@ -1926,8 +1926,8 @@ export const openapiDocument: OpenApiDocument = {
     },
     "/auth/register": {
       "post": {
-        "summary": "Register a new user",
-        "description": "Creates a user with a role. Role must be one of:\nPLATFORM_ADMIN | ORG_ADMIN | RECEPTIONIST | PRACTITIONER | STAFF | PATIENT\n\nWhen organizationId is provided the user is scoped to that tenant.\nAll subsequent requests by this user will be automatically filtered\nto that organization (tenant isolation).\n",
+        "summary": "Self-service patient sign-up",
+        "description": "Public endpoint. Always creates a PATIENT with no organization.\n\n`role` and `organizationId` are ignored if sent. Because this endpoint\nis unauthenticated, honouring them would let any caller mint a\nPLATFORM_ADMIN token or attach themselves to an arbitrary tenant.\n\nStaff and administrator accounts are created by an existing admin via\n`POST /api/users`. The first PLATFORM_ADMIN is created out-of-band with\n`pnpm admin:create`.\n",
         "tags": [
           "Auth"
         ],
@@ -1962,22 +1962,6 @@ export const openapiDocument: OpenApiDocument = {
                   },
                   "phone": {
                     "type": "string"
-                  },
-                  "role": {
-                    "type": "string",
-                    "enum": [
-                      "PLATFORM_ADMIN",
-                      "ORG_ADMIN",
-                      "RECEPTIONIST",
-                      "PRACTITIONER",
-                      "STAFF",
-                      "PATIENT"
-                    ],
-                    "default": "PATIENT"
-                  },
-                  "organizationId": {
-                    "type": "string",
-                    "description": "Required for org-scoped roles"
                   }
                 }
               }
@@ -1986,10 +1970,10 @@ export const openapiDocument: OpenApiDocument = {
         },
         "responses": {
           "201": {
-            "description": "User registered — returns user object and JWT token"
+            "description": "Patient registered — returns user object and JWT token"
           },
           "400": {
-            "description": "Validation error or email already exists"
+            "description": "Validation error, weak password, or email already exists"
           }
         }
       }

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Organization } from './organization.model';
+import { failed } from '../../shared/http/respond';
 
 export const createOrganization = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -16,7 +17,7 @@ export const createOrganization = async (req: Request, res: Response): Promise<v
     const savedOrganization = await newOrganization.save();
     res.status(201).json(savedOrganization);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating organization', error });
+    failed(res, 'Error creating organization', error);
   }
 };
 
@@ -25,6 +26,6 @@ export const getOrganizations = async (req: Request, res: Response): Promise<voi
     const organizations = await Organization.find({ isActive: true });
     res.status(200).json(organizations);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching organizations', error });
+    failed(res, 'Error fetching organizations', error);
   }
 };

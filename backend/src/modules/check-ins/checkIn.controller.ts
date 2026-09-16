@@ -17,6 +17,9 @@ import { Appointment } from '../appointments/appointment.model';
 import { Patient } from '../patients/patient.model';
 import { notificationService } from '../../shared/notifications/notification.service';
 import { AuditService } from '../../shared/audit/audit.service';
+import { syncAppointmentStatus } from '../appointments/appointment.service';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 /**
  * POST /api/check-ins
@@ -25,7 +28,7 @@ import { AuditService } from '../../shared/audit/audit.service';
 export const createCheckIn = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { patientId, appointmentId, locationId, source } = req.body;
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
 
     if (!patientId) {
       res.status(400).json({ message: 'patientId is required' });
@@ -77,14 +80,11 @@ export const createCheckIn = async (req: AuthRequest, res: Response): Promise<vo
 
     // Sync appointment → CHECKED_IN
     if (appointmentId) {
-      await Appointment.findOneAndUpdate(
-        { _id: appointmentId, organizationId },
-        { status: 'CHECKED_IN' }
-      );
+      await syncAppointmentStatus(appointmentId, organizationId, 'CHECKED_IN');
     }
 
     AuditService.log({
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       actorUserId: req.user!.id,
       actorRole: req.user!.role,
       action: 'CREATE',
@@ -96,14 +96,14 @@ export const createCheckIn = async (req: AuthRequest, res: Response): Promise<vo
 
     notificationService.notify({
       event:          'CHECKIN_COMPLETED',
-      organizationId: organizationId!.toString(),
+      organizationId: organizationId,
       patientId,
       context:        { checkInId: checkIn._id, appointmentId, source: checkIn.source },
     });
 
     res.status(201).json(checkIn);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create check-in', error });
+    failed(res, 'Failed to create check-in', error);
   }
 };
 
@@ -113,7 +113,7 @@ export const createCheckIn = async (req: AuthRequest, res: Response): Promise<vo
  */
 export const getCheckIns = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const organizationId = (req.user!.organizationId as string);
+    const organizationId = orgIdOf(req);
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -131,7 +131,7 @@ export const getCheckIns = async (req: AuthRequest, res: Response): Promise<void
 
     res.status(200).json(checkIns);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch check-ins', error });
+    failed(res, 'Failed to fetch check-ins', error);
   }
 };
 
@@ -142,7 +142,7 @@ export const getCheckInById = async (req: AuthRequest, res: Response): Promise<v
   try {
     const checkIn = await CheckIn.findOne({
       _id: req.params.id,
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
     })
       .populate('patientId', 'firstName lastName contactPhone')
       .populate('appointmentId', 'scheduledStartTime practitionerId departmentId status');
@@ -153,6 +153,6 @@ export const getCheckInById = async (req: AuthRequest, res: Response): Promise<v
     }
     res.status(200).json(checkIn);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch check-in', error });
+    failed(res, 'Failed to fetch check-in', error);
   }
 };

@@ -1,11 +1,13 @@
 import { Response } from 'express';
 import { Service } from './service.model';
 import { AuthRequest } from '../../shared/middlewares/auth.middleware';
+import { orgIdOf } from '../../shared/tenant/orgScope';
+import { failed } from '../../shared/http/respond';
 
 export const getServices = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const filter: any = {
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
       isActive: true,
     };
     // Optional: filter by department
@@ -16,7 +18,7 @@ export const getServices = async (req: AuthRequest, res: Response): Promise<void
       .sort({ name: 1 });
     res.status(200).json(services);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch services', error });
+    failed(res, 'Failed to fetch services', error);
   }
 };
 
@@ -28,7 +30,7 @@ export const createService = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
     const service = await Service.create({
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
       name,
       departmentId,
       description,
@@ -37,7 +39,7 @@ export const createService = async (req: AuthRequest, res: Response): Promise<vo
     });
     res.status(201).json(service);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create service', error });
+    failed(res, 'Failed to create service', error);
   }
 };
 
@@ -45,7 +47,7 @@ export const getServiceById = async (req: AuthRequest, res: Response): Promise<v
   try {
     const service = await Service.findOne({
       _id: req.params.id,
-      organizationId: (req.user!.organizationId as string),
+      organizationId: orgIdOf(req),
     }).populate('departmentId', 'name');
     if (!service) {
       res.status(404).json({ message: 'Service not found' });
@@ -53,14 +55,14 @@ export const getServiceById = async (req: AuthRequest, res: Response): Promise<v
     }
     res.status(200).json(service);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch service', error });
+    failed(res, 'Failed to fetch service', error);
   }
 };
 
 export const updateService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const service = await Service.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       req.body,
       { new: true, runValidators: true }
     );
@@ -70,14 +72,14 @@ export const updateService = async (req: AuthRequest, res: Response): Promise<vo
     }
     res.status(200).json(service);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update service', error });
+    failed(res, 'Failed to update service', error);
   }
 };
 
 export const deleteService = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const service = await Service.findOneAndUpdate(
-      { _id: req.params.id, organizationId: (req.user!.organizationId as string) },
+      { _id: req.params.id, organizationId: orgIdOf(req) },
       { isActive: false },
       { new: true }
     );
@@ -87,6 +89,6 @@ export const deleteService = async (req: AuthRequest, res: Response): Promise<vo
     }
     res.status(200).json({ message: 'Service deactivated', service });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete service', error });
+    failed(res, 'Failed to delete service', error);
   }
 };
