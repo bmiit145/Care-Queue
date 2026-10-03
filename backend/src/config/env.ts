@@ -23,6 +23,7 @@ export const env = {
   metaWhatsappPhoneNumberId: process.env.META_WHATSAPP_PHONE_NUMBER_ID?.trim(),
   metaWhatsappTemplateName: process.env.META_WHATSAPP_TEMPLATE_NAME?.trim(),
   metaWhatsappTemplateLanguage: process.env.META_WHATSAPP_TEMPLATE_LANGUAGE?.trim() || 'en_US',
+  metaWhatsappTemplateHasUrlButton: process.env.META_WHATSAPP_TEMPLATE_HAS_URL_BUTTON === 'true',
 } as const;
 
 if (!Number.isInteger(env.port) || env.port < 1 || env.port > 65535) {
