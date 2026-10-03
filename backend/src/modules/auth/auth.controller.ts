@@ -13,6 +13,12 @@ const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '90d';
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 
+type WhatsAppResponse = {
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+};
+
 const normalizePhone = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
   const phone = value.replace(/[\s()-]/g, '');
@@ -90,7 +96,7 @@ const sendWhatsAppOtp = async (phone: string, otp: string): Promise<void> => {
         components: [{ type: 'body', parameters: [{ type: 'text', text: otp }] }],
       },
     }),
-  });
+  }) as unknown as WhatsAppResponse;
 
   if (!response.ok) {
     const details = await response.text();
