@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createHash, randomInt } from 'node:crypto';
@@ -98,7 +98,7 @@ const sendWhatsAppOtp = async (phone: string, otp: string): Promise<void> => {
   }
 };
 
-export const requestOtp = async (req: Request, res: Response): Promise<void> => {
+export const requestOtp = async (req: Request, res: ExpressResponse): Promise<void> => {
   const phone = normalizePhone(req.body.phoneNumber ?? req.body.phone);
   if (!phone) {
     res.status(400).json({ message: 'phoneNumber must be an international phone number, for example +14155552671' });
@@ -117,7 +117,7 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
+export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<void> => {
   const phone = normalizePhone(req.body.phoneNumber ?? req.body.phone);
   const otp = typeof req.body.otp === 'string' ? req.body.otp.trim() : '';
   if (!phone || !/^\d{6}$/.test(otp)) {
@@ -163,7 +163,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const refresh = async (req: Request, res: Response): Promise<void> => {
+export const refresh = async (req: Request, res: ExpressResponse): Promise<void> => {
   const refreshToken = typeof req.body.refreshToken === 'string' ? req.body.refreshToken : '';
   if (!refreshToken) {
     res.status(400).json({ message: 'refreshToken is required' });
@@ -187,7 +187,7 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const checkMobileProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+export const checkMobileProfile = async (req: AuthRequest, res: ExpressResponse): Promise<void> => {
   try {
     const user = await User.findById(req.user!.id).select('-passwordHash').lean();
     if (!user) {
@@ -203,7 +203,7 @@ export const checkMobileProfile = async (req: AuthRequest, res: Response): Promi
 // ─────────────────────────────────────────
 // POST /api/auth/register
 // ─────────────────────────────────────────
-export const register = async (req: Request, res: Response): Promise<void> => {
+export const register = async (req: Request, res: ExpressResponse): Promise<void> => {
   try {
     const { firstName, lastName, email, password, phone } = req.body;
 
@@ -264,7 +264,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 // ─────────────────────────────────────────
 // POST /api/auth/login
 // ─────────────────────────────────────────
-export const login = async (req: Request, res: Response): Promise<void> => {
+export const login = async (req: Request, res: ExpressResponse): Promise<void> => {
   try {
     const { email, password } = req.body;
 
@@ -306,7 +306,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 // ─────────────────────────────────────────
 // GET /api/auth/me
 // ─────────────────────────────────────────
-export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getMe = async (req: AuthRequest, res: ExpressResponse): Promise<void> => {
   try {
     const user = await User.findById(req.user!.id).select('-passwordHash').lean();
     if (!user) {
