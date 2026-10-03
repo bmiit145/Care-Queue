@@ -13,11 +13,12 @@ export const USER_ROLES = [
 export type UserRole = typeof USER_ROLES[number];
 
 export interface IUser {
-  email: string;
-  passwordHash: string;
+  email?: string;
+  passwordHash?: string;
   firstName: string;
   lastName: string;
   phone?: string;
+  profileCompleted: boolean;
   role: UserRole;
   organizationId?: mongoose.Types.ObjectId;
   isActive: boolean;
@@ -33,11 +34,12 @@ type UserModel = Model<IUser, {}, IUserMethods>;
 
 const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
   {
-    email: { type: String, required: true, unique: true, lowercase: true, index: true, trim: true },
-    passwordHash: { type: String, required: true },
+    email: { type: String, unique: true, sparse: true, lowercase: true, index: true, trim: true },
+    passwordHash: { type: String },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
-    phone: { type: String, trim: true },
+    phone: { type: String, unique: true, sparse: true, trim: true },
+    profileCompleted: { type: Boolean, default: false },
     role: { type: String, enum: USER_ROLES, required: true, default: 'PATIENT' },
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', index: true },
     isActive: { type: Boolean, default: true },
@@ -46,7 +48,7 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
     timestamps: true,
     methods: {
       comparePassword(candidatePassword: string): Promise<boolean> {
-        return bcrypt.compare(candidatePassword, this.passwordHash);
+        return this.passwordHash ? bcrypt.compare(candidatePassword, this.passwordHash) : Promise.resolve(false);
       },
     },
   }

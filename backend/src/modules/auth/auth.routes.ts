@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, register, getMe } from './auth.controller';
+import { login, register, getMe, requestOtp, verifyOtp, refresh, checkMobileProfile } from './auth.controller';
 import { protect } from '../../shared/middlewares/auth.middleware';
 
 const router: Router = Router();
@@ -75,6 +75,10 @@ router.post('/register', register);
  */
 router.post('/login', login);
 
+router.post('/mobile/request-otp', requestOtp);
+router.post('/mobile/verify-otp', verifyOtp);
+router.post('/refresh', refresh);
+
 /**
  * @swagger
  * /auth/me:
@@ -90,5 +94,7 @@ router.post('/login', login);
  *         description: Unauthorized
  */
 router.get('/me', protect, getMe);
+router.get('/mobile/profile', protect, checkMobileProfile);
+router.get('/profile/check', protect, checkMobileProfile);
 
 export default router;

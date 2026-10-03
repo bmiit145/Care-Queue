@@ -19,6 +19,10 @@ export const env = {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
+  metaWhatsappAccessToken: process.env.META_WHATSAPP_ACCESS_TOKEN?.trim(),
+  metaWhatsappPhoneNumberId: process.env.META_WHATSAPP_PHONE_NUMBER_ID?.trim(),
+  metaWhatsappTemplateName: process.env.META_WHATSAPP_TEMPLATE_NAME?.trim(),
+  metaWhatsappTemplateLanguage: process.env.META_WHATSAPP_TEMPLATE_LANGUAGE?.trim() || 'en_US',
 } as const;
 
 if (!Number.isInteger(env.port) || env.port < 1 || env.port > 65535) {
