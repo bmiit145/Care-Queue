@@ -82,15 +82,13 @@ const sendWhatsAppOtp = async (phone: string, otp: string): Promise<void> => {
 
   const components: Array<Record<string, unknown>> = [
     { type: 'body', parameters: [{ type: 'text', text: otp }] },
-  ];
-  if (env.metaWhatsappTemplateHasUrlButton) {
-    components.push({
+    {
       type: 'button',
       sub_type: 'url',
       index: '0',
       parameters: [{ type: 'text', text: otp }],
-    });
-  }
+    },
+  ];
 
   const response = await fetch(`https://graph.facebook.com/v21.0/${metaWhatsappPhoneNumberId}/messages`, {
     method: 'POST',
