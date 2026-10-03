@@ -75,8 +75,70 @@ router.post('/register', register);
  */
 router.post('/login', login);
 
+/**
+ * @swagger
+ * /auth/mobile/request-otp:
+ *   post:
+ *     summary: Send a mobile login OTP through WhatsApp
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phoneNumber]
+ *             properties:
+ *               phoneNumber: { type: string, example: "+14155552671" }
+ *     responses:
+ *       200: { description: OTP sent successfully }
+ *       400: { description: Invalid phone number }
+ *       500: { description: WhatsApp delivery failed }
+ */
 router.post('/mobile/request-otp', requestOtp);
+
+/**
+ * @swagger
+ * /auth/mobile/verify-otp:
+ *   post:
+ *     summary: Verify a mobile OTP and create or authenticate the patient
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phoneNumber, otp]
+ *             properties:
+ *               phoneNumber: { type: string, example: "+14155552671" }
+ *               otp: { type: string, example: "123456" }
+ *     responses:
+ *       200: { description: OTP verified with access and refresh tokens }
+ *       400: { description: Invalid request }
+ *       401: { description: Invalid or expired OTP }
+ */
 router.post('/mobile/verify-otp', verifyOtp);
+
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Issue a new access token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200: { description: New access token }
+ *       401: { description: Invalid or expired refresh token }
+ */
 router.post('/refresh', refresh);
 
 /**
@@ -94,7 +156,33 @@ router.post('/refresh', refresh);
  *         description: Unauthorized
  */
 router.get('/me', protect, getMe);
+
+/**
+ * @swagger
+ * /auth/mobile/profile:
+ *   get:
+ *     summary: Check whether the mobile patient's profile is complete
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Profile completion status and user data }
+ *       401: { description: Unauthorized }
+ */
 router.get('/mobile/profile', protect, checkMobileProfile);
+
+/**
+ * @swagger
+ * /auth/profile/check:
+ *   get:
+ *     summary: Check whether the authenticated patient's profile is complete
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Profile completion status and user data }
+ *       401: { description: Unauthorized }
+ */
 router.get('/profile/check', protect, checkMobileProfile);
 
 export default router;
