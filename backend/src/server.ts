@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
 import { env } from './config/env';
-import connectDB from './config/db';
+import connectDB, { getDatabaseHealth } from './config/db';
 import { swaggerSpec } from './config/swagger';
 import {
   SWAGGER_SPEC_PATH,
@@ -85,15 +85,27 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.get('/health/live', (_req, res) => {
-  res.status(200).json({ success: true, data: { status: 'ok' } });
+const healthMetadata = () => ({
+  service: 'care-queue-api',
+  version: process.env.npm_package_version || '1.0.0',
+  timestamp: new Date().toISOString(),
+  uptimeSeconds: Math.floor(process.uptime()),
 });
 
-app.get('/health/ready', (_req, res) => {
-  const ready = mongoose.connection.readyState === 1;
+app.get('/health/live', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    ...healthMetadata(),
+  });
+});
+
+app.get('/health/ready', async (_req, res) => {
+  const database = await getDatabaseHealth();
+  const ready = database.status === 'up';
   res.status(ready ? 200 : 503).json({
-    success: ready,
-    data: { status: ready ? 'ready' : 'not-ready' },
+    status: ready ? 'ready' : 'not-ready',
+    ...healthMetadata(),
+    checks: { database },
   });
 });
 
@@ -127,6 +139,21 @@ app.get(SWAGGER_UI_INIT_PATH, (_req, res) => {
 app.get('/api-docs', (_req, res) => {
   res.type('text/html').send(swaggerUiHtml);
 });
+
+const requireDatabase = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database unavailable:', error);
+    res.status(503).json({
+      message: 'Service temporarily unavailable',
+      error: 'database_not_ready',
+    });
+  }
+};
+
+app.use(requireDatabase);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/organizations', organizationRoutes);
@@ -166,7 +193,9 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const start = async (): Promise<void> => {
-  await connectDB();
+  void connectDB().catch((error: unknown) => {
+    console.error('Initial database connection failed:', error);
+  });
 
   const server = app.listen(env.port, () => {
     console.log(`Care-Queue API listening on port ${env.port}`);
