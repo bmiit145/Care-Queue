@@ -122,11 +122,16 @@ export const requestOtp = async (req: Request, res: ExpressResponse): Promise<vo
   }
 
   try {
-    const otp = randomInt(100000, 1000000).toString();
+    const otp = env.otpDeliveryEnabled ? randomInt(100000, 1000000).toString() : '123456';
     await OtpChallenge.deleteMany({ phone });
     await OtpChallenge.create({ phone, codeHash: hashOtp(otp), expiresAt: new Date(Date.now() + OTP_TTL_MS) });
-    await sendWhatsAppOtp(phone, otp);
-    res.status(200).json({ message: 'OTP sent successfully', expiresInSeconds: OTP_TTL_MS / 1000 });
+    if (env.otpDeliveryEnabled) {
+      await sendWhatsAppOtp(phone, otp);
+    }
+    res.status(200).json({
+      message: env.otpDeliveryEnabled ? 'OTP sent successfully' : 'OTP generated successfully',
+      expiresInSeconds: OTP_TTL_MS / 1000,
+    });
   } catch (error) {
     await OtpChallenge.deleteMany({ phone }).catch(() => undefined);
     failed(res, 'Failed to send OTP', error);
