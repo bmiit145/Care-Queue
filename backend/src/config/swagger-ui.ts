@@ -40,6 +40,7 @@ export const swaggerUiHtml = `<!DOCTYPE html>
  * a `script-src` that does not need `'unsafe-inline'`.
  */
 export const swaggerUiInitJs = `window.addEventListener('load', function () {
+  var tagOrder = ['Health', 'Auth', 'Organizations', 'Users', 'Locations', 'Departments', 'Services', 'Practitioners', 'Schedules', 'Patients', 'Check-Ins', 'Appointments', 'Queues', 'Visits', 'Analytics'];
   window.ui = SwaggerUIBundle({
     url: '${SWAGGER_SPEC_PATH}',
     dom_id: '#swagger-ui',
@@ -47,6 +48,14 @@ export const swaggerUiInitJs = `window.addEventListener('load', function () {
     layout: 'BaseLayout',
     presets: [SwaggerUIBundle.presets.apis],
     plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+    tagsSorter: function (first, second) {
+      var firstIndex = tagOrder.indexOf(first);
+      var secondIndex = tagOrder.indexOf(second);
+      return (firstIndex < 0 ? tagOrder.length : firstIndex) - (secondIndex < 0 ? tagOrder.length : secondIndex);
+    },
+    operationsSorter: function (first, second) {
+      return first.get('path').localeCompare(second.get('path'));
+    },
     persistAuthorization: true,
     tryItOutEnabled: true
   });

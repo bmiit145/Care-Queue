@@ -10,6 +10,68 @@ export const openapiDocument: OpenApiDocument = {
     "version": "1.0.0",
     "description": "API documentation for Care-Queue Backend (Phase 1)"
   },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Service health and readiness checks"
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication and session management"
+    },
+    {
+      "name": "Organizations",
+      "description": "Organization management"
+    },
+    {
+      "name": "Users",
+      "description": "User and staff management"
+    },
+    {
+      "name": "Locations",
+      "description": "Location management"
+    },
+    {
+      "name": "Departments",
+      "description": "Department management"
+    },
+    {
+      "name": "Services",
+      "description": "Clinical service management"
+    },
+    {
+      "name": "Practitioners",
+      "description": "Practitioner management"
+    },
+    {
+      "name": "Schedules",
+      "description": "Practitioner schedule management"
+    },
+    {
+      "name": "Patients",
+      "description": "Patient management"
+    },
+    {
+      "name": "Check-Ins",
+      "description": "Patient check-in management"
+    },
+    {
+      "name": "Appointments",
+      "description": "Appointment management"
+    },
+    {
+      "name": "Queues",
+      "description": "Queue management"
+    },
+    {
+      "name": "Visits",
+      "description": "Visit management"
+    },
+    {
+      "name": "Analytics",
+      "description": "Operational analytics"
+    }
+  ],
   "servers": [
     {
       "url": "/api",
@@ -2540,60 +2602,48 @@ export const openapiDocument: OpenApiDocument = {
           }
         }
       }
+    },
+    "/health/live": {
+      "get": {
+        "summary": "Check whether the API process is alive",
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "API process is alive"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Check whether the API is ready to serve database-backed requests",
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "API and database are ready"
+          },
+          "503": {
+            "description": "API is alive but a dependency is unavailable"
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Get API service metadata",
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Service metadata"
+          }
+        }
+      }
     }
-  },
-  "tags": [
-    {
-      "name": "Visits",
-      "description": "Visit/Encounter lifecycle — the central operational record"
-    },
-    {
-      "name": "Users",
-      "description": "Staff user management (docs §13).\nPLATFORM_ADMIN manages all users across all tenants.\nORG_ADMIN manages only users within their own organization.\n\nRoles: PLATFORM_ADMIN | ORG_ADMIN | RECEPTIONIST | PRACTITIONER | STAFF | PATIENT\n"
-    },
-    {
-      "name": "Services",
-      "description": "Clinical services that patients book (docs §9).\nExamples: \"New Patient Consultation\", \"Follow-up\", \"ECG\", \"Physiotherapy Session\".\nServices are linked to a department and have a duration and optional price.\n"
-    },
-    {
-      "name": "Schedules",
-      "description": "Practitioner scheduling and availability"
-    },
-    {
-      "name": "Queues",
-      "description": "Queue management and patient flow"
-    },
-    {
-      "name": "Practitioners",
-      "description": "Practitioner management (docs §10).\nTypes per docs: DOCTOR | DENTIST | PHYSIOTHERAPIST | PSYCHOLOGIST | OTHER.\nA practitioner profile is separate from the User identity per docs rule §13 / §23.\n"
-    },
-    {
-      "name": "Organizations",
-      "description": "Multi-tenant organization (tenant) management (docs §3).\nEach organization represents one healthcare customer —\na hospital, clinic, private practice, or diagnostic center.\n\nOrganization types:\n  HOSPITAL | CLINIC | PRIVATE_PRACTICE | DIAGNOSTIC_CENTER | HEALTHCARE_CENTER\n"
-    },
-    {
-      "name": "Locations",
-      "description": "Hospital/clinic branch management (docs §7).\nAll results are automatically scoped to the authenticated user's organization.\n"
-    },
-    {
-      "name": "Departments",
-      "description": "Clinical department management (docs §8).\nDepartments can span multiple locations and contain multiple services.\n"
-    },
-    {
-      "name": "Check-Ins",
-      "description": "Patient arrival/check-in management (docs §16).\n\nA check-in is a DISTINCT OPERATIONAL EVENT from the appointment.\nIt captures the actual patient arrival time, which enables:\n- Waiting-time calculation\n- Late-arrival analysis\n- No-show analysis\n- Queue performance measurement\n\nWalk-ins are supported: simply omit appointmentId.\n"
-    },
-    {
-      "name": "Auth",
-      "description": "Authentication and session management"
-    },
-    {
-      "name": "Appointments",
-      "description": "Appointment booking and management"
-    },
-    {
-      "name": "Analytics",
-      "description": "Operational metrics and performance data"
-    }
-  ]
+  }
 };

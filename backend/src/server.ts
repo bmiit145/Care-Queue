@@ -92,6 +92,15 @@ const healthMetadata = () => ({
   uptimeSeconds: Math.floor(process.uptime()),
 });
 
+/**
+ * @swagger
+ * /health/live:
+ *   get:
+ *     summary: Check whether the API process is alive
+ *     tags: [Health]
+ *     responses:
+ *       200: { description: API process is alive }
+ */
 app.get('/health/live', (_req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -99,6 +108,16 @@ app.get('/health/live', (_req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /health/ready:
+ *   get:
+ *     summary: Check whether the API is ready to serve database-backed requests
+ *     tags: [Health]
+ *     responses:
+ *       200: { description: API and database are ready }
+ *       503: { description: API is alive but a dependency is unavailable }
+ */
 app.get('/health/ready', async (_req, res) => {
   const database = await getDatabaseHealth();
   const ready = database.status === 'up';
@@ -170,6 +189,15 @@ app.use('/api/queues', queueRoutes);
 app.use('/api/visits', visitRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: Get API service metadata
+ *     tags: [Health]
+ *     responses:
+ *       200: { description: Service metadata }
+ */
 app.get('/', (_req, res) => {
   res.json({
     service: 'Care-Queue Backend API',
