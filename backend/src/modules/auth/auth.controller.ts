@@ -21,7 +21,11 @@ type WhatsAppResponse = {
 
 const normalizePhone = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
-  const phone = value.replace(/[\s()-]/g, '');
+  let phone = value.replace(/[\s()-]/g, '');
+  // Auto-prepend +91 for 10-digit Indian mobile numbers (e.g. 9898038051 → +919898038051)
+  if (/^[6-9]\d{9}$/.test(phone)) {
+    phone = `+91${phone}`;
+  }
   return /^\+[1-9]\d{7,14}$/.test(phone) ? phone : null;
 };
 
@@ -117,7 +121,7 @@ const sendWhatsAppOtp = async (phone: string, otp: string): Promise<void> => {
 export const requestOtp = async (req: Request, res: ExpressResponse): Promise<void> => {
   const phone = normalizePhone(req.body.phoneNumber ?? req.body.phone);
   if (!phone) {
-    res.status(400).json({ message: 'phoneNumber must be an international phone number, for example +14155552671' });
+    res.status(400).json({ message: 'phoneNumber must be a 10-digit Indian number (e.g. 9898038051) or international format (e.g. +919898038051)' });
     return;
   }
 
@@ -128,10 +132,16 @@ export const requestOtp = async (req: Request, res: ExpressResponse): Promise<vo
     if (env.otpDeliveryEnabled) {
       await sendWhatsAppOtp(phone, otp);
     }
-    res.status(200).json({
+    const responseBody: Record<string, unknown> = {
       message: env.otpDeliveryEnabled ? 'OTP sent successfully' : 'OTP generated successfully',
       expiresInSeconds: OTP_TTL_MS / 1000,
-    });
+    };
+    // In dev mode expose the static OTP so any phone number can be tested without guessing.
+    // This field is NEVER present when real delivery is enabled.
+    if (!env.otpDeliveryEnabled) {
+      responseBody.devOtp = otp;
+    }
+    res.status(200).json(responseBody);
   } catch (error) {
     await OtpChallenge.deleteMany({ phone }).catch(() => undefined);
     failed(res, 'Failed to send OTP', error);
