@@ -171,17 +171,24 @@ export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<voi
     }
 
     await OtpChallenge.deleteOne({ _id: challenge._id });
-    let user = await User.findOne({ phone });
-    if (!user) {
-      user = await User.create({
-        phone,
-        firstName: 'Mobile',
-        lastName: 'User',
-        role: 'PATIENT',
-        profileCompleted: false,
-        isActive: true,
-      });
-    }
+
+    // Use atomic upsert to avoid E11000 duplicate-key errors when the phone
+    // document already exists (e.g. from a previous partial registration or
+    // a concurrent request hitting the unique phone index).
+    const user = await User.findOneAndUpdate(
+      { phone },
+      {
+        $setOnInsert: {
+          phone,
+          firstName: 'Mobile',
+          lastName: 'User',
+          role: 'PATIENT',
+          profileCompleted: false,
+          isActive: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
     if (!user.isActive) {
       res.status(403).json({ message: 'User account is inactive' });
