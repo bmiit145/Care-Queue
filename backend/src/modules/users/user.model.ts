@@ -15,8 +15,10 @@ export type UserRole = typeof USER_ROLES[number];
 export interface IUser {
   email?: string;
   passwordHash?: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  age?: number | null;
+  gender?: string | null;
   phone?: string;
   profileCompleted: boolean;
   role: UserRole;
@@ -36,8 +38,10 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
   {
     email: { type: String, unique: true, sparse: true, lowercase: true, index: true, trim: true },
     passwordHash: { type: String },
-    firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
+    firstName: { type: String, trim: true, default: null },
+    lastName: { type: String, trim: true, default: null },
+    age: { type: Number, default: null },
+    gender: { type: String, default: null },
     phone: { type: String, unique: true, sparse: true, trim: true },
     profileCompleted: { type: Boolean, default: false },
     role: { type: String, enum: USER_ROLES, required: true, default: 'PATIENT' },

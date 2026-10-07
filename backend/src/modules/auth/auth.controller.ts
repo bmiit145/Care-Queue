@@ -56,20 +56,24 @@ const generateRefreshToken = (id: string): string => {
 
 const authResponse = (user: {
   _id: { toString(): string };
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  email?: string | null;
+  phone?: string | null;
   role: UserRole;
   organizationId?: { toString(): string };
   profileCompleted: boolean;
 }) => ({
   user: {
     _id: user._id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    email: user.email,
-    phone: user.phone,
+    firstName: user.firstName ?? null,
+    lastName: user.lastName ?? null,
+    age: user.age ?? null,
+    gender: user.gender ?? null,
+    email: user.email ?? null,
+    phone: user.phone ?? null,
     role: user.role,
     organizationId: user.organizationId,
     profileCompleted: user.profileCompleted,
@@ -180,8 +184,10 @@ export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<voi
       {
         $setOnInsert: {
           phone,
-          firstName: 'Mobile',
-          lastName: 'User',
+          firstName: null,
+          lastName: null,
+          age: null,
+          gender: null,
           role: 'PATIENT',
           profileCompleted: false,
           isActive: true,
@@ -243,7 +249,7 @@ export const checkMobileProfile = async (req: AuthRequest, res: ExpressResponse)
 // ─────────────────────────────────────────
 export const register = async (req: Request, res: ExpressResponse): Promise<void> => {
   try {
-    const { firstName, lastName, email, password, phone } = req.body;
+    const { firstName, lastName, age, gender, email, phone } = req.body;
 
     // `role` and `organizationId` are deliberately NOT read from the body.
     // This endpoint is unauthenticated, so honouring them let any caller mint
@@ -251,13 +257,8 @@ export const register = async (req: Request, res: ExpressResponse): Promise<void
     // Privileged accounts are created through POST /api/users by an existing
     // admin; the first PLATFORM_ADMIN comes from scripts/create-platform-admin.ts.
 
-    if (!firstName || !lastName || !email || !password) {
-      res.status(400).json({ message: 'firstName, lastName, email, and password are required' });
-      return;
-    }
-
-    if (typeof password !== 'string' || password.length < 8) {
-      res.status(400).json({ message: 'password must be at least 8 characters long' });
+    if (!phone && !email) {
+      res.status(400).json({ message: 'phone or email is required to register' });
       return;
     }
 
@@ -267,14 +268,12 @@ export const register = async (req: Request, res: ExpressResponse): Promise<void
       return;
     }
 
-    const salt = await bcrypt.genSalt(12);
-    const passwordHash = await bcrypt.hash(password, salt);
-
     const user = await User.create({
-      firstName,
-      lastName,
-      email: email.toLowerCase(),
-      passwordHash,
+      firstName: firstName ?? null,
+      lastName: lastName ?? null,
+      age: age ?? null,
+      gender: gender ?? null,
+      email: email ? email.toLowerCase() : undefined,
       phone,
       role: 'PATIENT' satisfies UserRole,
       profileCompleted: true,
@@ -283,9 +282,12 @@ export const register = async (req: Request, res: ExpressResponse): Promise<void
 
     res.status(201).json({
       _id:            user._id,
-      firstName:      user.firstName,
-      lastName:       user.lastName,
-      email:          user.email,
+      firstName:      user.firstName ?? null,
+      lastName:       user.lastName ?? null,
+      age:            user.age ?? null,
+      gender:         user.gender ?? null,
+      email:          user.email ?? null,
+      phone:          user.phone ?? null,
       role:           user.role,
       organizationId: user.organizationId,
       token: generateToken(
@@ -325,9 +327,12 @@ export const login = async (req: Request, res: ExpressResponse): Promise<void> =
 
     res.status(200).json({
       _id:            user._id,
-      firstName:      user.firstName,
-      lastName:       user.lastName,
-      email:          user.email,
+      firstName:      user.firstName ?? null,
+      lastName:       user.lastName ?? null,
+      age:            user.age ?? null,
+      gender:         user.gender ?? null,
+      email:          user.email ?? null,
+      phone:          user.phone ?? null,
       role:           user.role,
       organizationId: user.organizationId,
       token: generateToken(
