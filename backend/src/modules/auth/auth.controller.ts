@@ -54,7 +54,7 @@ const generateRefreshToken = (id: string): string => {
   } as jwt.SignOptions);
 };
 
-const authResponse = (user: {
+type PublicUserSource = {
   _id: { toString(): string };
   firstName?: string | null;
   lastName?: string | null;
@@ -65,22 +65,40 @@ const authResponse = (user: {
   role: UserRole;
   organizationId?: { toString(): string };
   profileCompleted: boolean;
-}) => ({
-  user: {
-    _id: user._id,
-    firstName: user.firstName ?? null,
-    lastName: user.lastName ?? null,
-    age: user.age ?? null,
-    gender: user.gender ?? null,
-    email: user.email ?? null,
-    phone: user.phone ?? null,
-    role: user.role,
-    organizationId: user.organizationId,
-    profileCompleted: user.profileCompleted,
-  },
+};
+
+// Mobile clients expect "" rather than null for profile fields that are not filled yet.
+const publicUser = (user: PublicUserSource) => ({
+  _id: user._id,
+  firstName: user.firstName ?? '',
+  lastName: user.lastName ?? '',
+  age: user.age ?? '',
+  gender: user.gender ?? '',
+  email: user.email ?? '',
+  phone: user.phone ?? '',
+  role: user.role,
+  organizationId: user.organizationId,
+  profileCompleted: user.profileCompleted,
+});
+
+const authResponse = (user: PublicUserSource) => ({
+  user: publicUser(user),
   accessToken: generateToken(user._id.toString(), user.role, user.organizationId?.toString()),
   refreshToken: generateRefreshToken(user._id.toString()),
 });
+
+// Returns the user id from a valid Bearer access token, or null if none/invalid.
+const bearerUserId = (req: Request): string | null => {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return null;
+  try {
+    const decoded = jwt.verify(header.slice('Bearer '.length).trim(), env.jwtSecret, { algorithms: ['HS256'] });
+    if (typeof decoded === 'string' || decoded.type === 'refresh' || typeof decoded.id !== 'string') return null;
+    return decoded.id;
+  } catch {
+    return null;
+  }
+};
 
 const sendWhatsAppOtp = async (phone: string, otp: string): Promise<void> => {
   const { metaWhatsappAccessToken, metaWhatsappPhoneNumberId, metaWhatsappTemplateName, metaWhatsappTemplateLanguage } = env;
@@ -196,6 +214,13 @@ export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<voi
       { upsert: true, new: true }
     );
 
+    // Older builds created OTP users with placeholder names "Mobile" / "User".
+    if (!user.profileCompleted && user.firstName === 'Mobile' && user.lastName === 'User') {
+      user.firstName = null;
+      user.lastName = null;
+      await user.save();
+    }
+
     if (!user.isActive) {
       res.status(403).json({ message: 'User account is inactive' });
       return;
@@ -249,7 +274,11 @@ export const checkMobileProfile = async (req: AuthRequest, res: ExpressResponse)
 // ─────────────────────────────────────────
 export const register = async (req: Request, res: ExpressResponse): Promise<void> => {
   try {
-    const { firstName, lastName, age, gender, email, phone } = req.body;
+    const { firstName, lastName, age, gender } = req.body;
+    const rawPhone = req.body.phoneNumber ?? req.body.phone;
+    const email = typeof req.body.email === 'string' && req.body.email.trim()
+      ? req.body.email.trim().toLowerCase()
+      : undefined;
 
     // `role` and `organizationId` are deliberately NOT read from the body.
     // This endpoint is unauthenticated, so honouring them let any caller mint
@@ -257,45 +286,63 @@ export const register = async (req: Request, res: ExpressResponse): Promise<void
     // Privileged accounts are created through POST /api/users by an existing
     // admin; the first PLATFORM_ADMIN comes from scripts/create-platform-admin.ts.
 
-    if (!phone && !email) {
+    const phone = rawPhone ? normalizePhone(rawPhone) ?? undefined : undefined;
+    if (rawPhone && !phone) {
+      res.status(400).json({ message: 'phoneNumber must be a 10-digit Indian number (e.g. 9898038051) or international format (e.g. +919898038051)' });
+      return;
+    }
+
+    // Mobile OTP users complete their existing profile by calling this with
+    // the accessToken from verify-otp; otherwise a new patient is created.
+    const authedUserId = bearerUserId(req);
+    const currentUser = authedUserId ? await User.findById(authedUserId) : null;
+
+    if (!currentUser && !phone && !email) {
       res.status(400).json({ message: 'phone or email is required to register' });
       return;
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      res.status(400).json({ message: 'A user with this email already exists' });
-      return;
+    if (email) {
+      const emailOwner = await User.findOne({ email });
+      if (emailOwner && !emailOwner._id.equals(currentUser?._id)) {
+        res.status(400).json({ message: 'A user with this email already exists' });
+        return;
+      }
     }
 
-    const user = await User.create({
+    if (phone) {
+      const phoneOwner = await User.findOne({ phone });
+      if (phoneOwner && !phoneOwner._id.equals(currentUser?._id)) {
+        res.status(400).json({ message: 'A user with this phone number already exists' });
+        return;
+      }
+    }
+
+    const profile = {
       firstName: firstName ?? null,
       lastName: lastName ?? null,
       age: age ?? null,
       gender: gender ?? null,
-      email: email ? email.toLowerCase() : undefined,
-      phone,
-      role: 'PATIENT' satisfies UserRole,
       profileCompleted: true,
-      isActive: true,
-    });
+    };
 
-    res.status(201).json({
-      _id:            user._id,
-      firstName:      user.firstName ?? null,
-      lastName:       user.lastName ?? null,
-      age:            user.age ?? null,
-      gender:         user.gender ?? null,
-      email:          user.email ?? null,
-      phone:          user.phone ?? null,
-      role:           user.role,
-      organizationId: user.organizationId,
-      token: generateToken(
-        user._id.toString(),
-        user.role,
-        user.organizationId?.toString()
-      ),
-    });
+    let user;
+    if (currentUser) {
+      currentUser.set(profile);
+      if (email) currentUser.email = email;
+      if (phone) currentUser.phone = phone;
+      user = await currentUser.save();
+    } else {
+      user = await User.create({
+        ...profile,
+        ...(email && { email }),
+        ...(phone && { phone }),
+        role: 'PATIENT' satisfies UserRole,
+        isActive: true,
+      });
+    }
+
+    res.status(currentUser ? 200 : 201).json(publicUser(user));
   } catch (error) {
     failed(res, 'Registration failed', error);
   }

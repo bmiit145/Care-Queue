@@ -26,6 +26,10 @@ const router: Router = Router();
  *       Staff and administrator accounts are created by an existing admin via
  *       `POST /api/users`. The first PLATFORM_ADMIN is created out-of-band with
  *       `pnpm admin:create`.
+ *
+ *       Mobile OTP users: send the `accessToken` from verify-otp as
+ *       `Authorization: Bearer <token>` to complete that same user's profile
+ *       (sets `profileCompleted: true`). No token is returned.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -39,10 +43,12 @@ const router: Router = Router();
  *               lastName:  { type: string, example: "Patel" }
  *               email:     { type: string, format: email }
  *               password:  { type: string, minLength: 8 }
- *               phone:     { type: string }
+ *               phone:     { type: string, description: "Also accepted as phoneNumber" }
  *     responses:
+ *       200:
+ *         description: Existing (OTP) user's profile completed — returns user object
  *       201:
- *         description: Patient registered — returns user object and JWT token
+ *         description: Patient registered — returns user object
  *       400:
  *         description: Validation error, weak password, or email already exists
  */
