@@ -37,12 +37,15 @@ const router: Router = Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [firstName, lastName, email, password]
+ *             description: |
+ *               All fields are optional. Without a Bearer token, at least one of
+ *               `phone` or `email` is required to create the patient.
  *             properties:
  *               firstName: { type: string, example: "Rahul" }
  *               lastName:  { type: string, example: "Patel" }
- *               email:     { type: string, format: email }
- *               password:  { type: string, minLength: 8 }
+ *               age:       { type: number, example: 30 }
+ *               gender:    { type: string, example: "MALE" }
+ *               email:     { type: string, format: email, description: "Optional" }
  *               phone:     { type: string, description: "Also accepted as phoneNumber" }
  *     responses:
  *       200:
@@ -50,7 +53,7 @@ const router: Router = Router();
  *       201:
  *         description: Patient registered — returns user object
  *       400:
- *         description: Validation error, weak password, or email already exists
+ *         description: Validation error, missing phone/email for a new user, or email/phone already exists
  */
 router.post('/register', register);
 

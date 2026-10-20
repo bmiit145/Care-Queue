@@ -1989,7 +1989,7 @@ export const openapiDocument: OpenApiDocument = {
     "/auth/register": {
       "post": {
         "summary": "Self-service patient sign-up",
-        "description": "Public endpoint. Always creates a PATIENT with no organization.\n\n`role` and `organizationId` are ignored if sent. Because this endpoint\nis unauthenticated, honouring them would let any caller mint a\nPLATFORM_ADMIN token or attach themselves to an arbitrary tenant.\n\nStaff and administrator accounts are created by an existing admin via\n`POST /api/users`. The first PLATFORM_ADMIN is created out-of-band with\n`pnpm admin:create`.\n",
+        "description": "Public endpoint. Always creates a PATIENT with no organization.\n\n`role` and `organizationId` are ignored if sent. Because this endpoint\nis unauthenticated, honouring them would let any caller mint a\nPLATFORM_ADMIN token or attach themselves to an arbitrary tenant.\n\nStaff and administrator accounts are created by an existing admin via\n`POST /api/users`. The first PLATFORM_ADMIN is created out-of-band with\n`pnpm admin:create`.\n\nMobile OTP users: send the `accessToken` from verify-otp as\n`Authorization: Bearer <token>` to complete that same user's profile\n(sets `profileCompleted: true`). No token is returned.\n",
         "tags": [
           "Auth"
         ],
@@ -1999,12 +1999,7 @@ export const openapiDocument: OpenApiDocument = {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "firstName",
-                  "lastName",
-                  "email",
-                  "password"
-                ],
+                "description": "All fields are optional. Without a Bearer token, at least one of\n`phone` or `email` is required to create the patient.\n",
                 "properties": {
                   "firstName": {
                     "type": "string",
@@ -2014,16 +2009,22 @@ export const openapiDocument: OpenApiDocument = {
                     "type": "string",
                     "example": "Patel"
                   },
+                  "age": {
+                    "type": "number",
+                    "example": 30
+                  },
+                  "gender": {
+                    "type": "string",
+                    "example": "MALE"
+                  },
                   "email": {
                     "type": "string",
-                    "format": "email"
-                  },
-                  "password": {
-                    "type": "string",
-                    "minLength": 8
+                    "format": "email",
+                    "description": "Optional"
                   },
                   "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Also accepted as phoneNumber"
                   }
                 }
               }
@@ -2031,11 +2032,14 @@ export const openapiDocument: OpenApiDocument = {
           }
         },
         "responses": {
+          "200": {
+            "description": "Existing (OTP) user's profile completed — returns user object"
+          },
           "201": {
-            "description": "Patient registered — returns user object and JWT token"
+            "description": "Patient registered — returns user object"
           },
           "400": {
-            "description": "Validation error, weak password, or email already exists"
+            "description": "Validation error, missing phone/email for a new user, or email/phone already exists"
           }
         }
       }
