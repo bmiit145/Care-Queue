@@ -1999,7 +1999,11 @@ export const openapiDocument: OpenApiDocument = {
             "application/json": {
               "schema": {
                 "type": "object",
-                "description": "All fields are optional. Without a Bearer token, at least one of\n`phone` or `email` is required to create the patient.\n",
+                "description": "`email` is optional. Without a Bearer token, at least one of\n`phone` or `email` is required to create the patient.\n",
+                "required": [
+                  "firstName",
+                  "lastName"
+                ],
                 "properties": {
                   "firstName": {
                     "type": "string",
@@ -2040,6 +2044,12 @@ export const openapiDocument: OpenApiDocument = {
           },
           "400": {
             "description": "Validation error, missing phone/email for a new user, or email/phone already exists"
+          },
+          "401": {
+            "description": "Authorization header sent but the access token is invalid or expired"
+          },
+          "403": {
+            "description": "User account is inactive"
           }
         }
       }

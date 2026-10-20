@@ -38,8 +38,9 @@ const router: Router = Router();
  *           schema:
  *             type: object
  *             description: |
- *               All fields are optional. Without a Bearer token, at least one of
+ *               `email` is optional. Without a Bearer token, at least one of
  *               `phone` or `email` is required to create the patient.
+ *             required: [firstName, lastName]
  *             properties:
  *               firstName: { type: string, example: "Rahul" }
  *               lastName:  { type: string, example: "Patel" }
@@ -54,6 +55,10 @@ const router: Router = Router();
  *         description: Patient registered — returns user object
  *       400:
  *         description: Validation error, missing phone/email for a new user, or email/phone already exists
+ *       401:
+ *         description: Authorization header sent but the access token is invalid or expired
+ *       403:
+ *         description: User account is inactive
  */
 router.post('/register', register);
 

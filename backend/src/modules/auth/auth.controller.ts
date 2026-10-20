@@ -87,10 +87,12 @@ const authResponse = (user: PublicUserSource) => ({
   refreshToken: generateRefreshToken(user._id.toString()),
 });
 
-// Returns the user id from a valid Bearer access token, or null if none/invalid.
-const bearerUserId = (req: Request): string | null => {
+// Returns the user id from a valid Bearer access token, undefined if no token
+// was sent, or null if a token was sent but is invalid/expired.
+const bearerUserId = (req: Request): string | null | undefined => {
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return null;
+  if (!header) return undefined;
+  if (!header.startsWith('Bearer ')) return null;
   try {
     const decoded = jwt.verify(header.slice('Bearer '.length).trim(), env.jwtSecret, { algorithms: ['HS256'] });
     if (typeof decoded === 'string' || decoded.type === 'refresh' || typeof decoded.id !== 'string') return null;
@@ -263,7 +265,7 @@ export const checkMobileProfile = async (req: AuthRequest, res: ExpressResponse)
       res.status(404).json({ message: 'User not found' });
       return;
     }
-    res.status(200).json({ profileCompleted: user.profileCompleted, user });
+    res.status(200).json({ profileCompleted: user.profileCompleted, user: publicUser(user) });
   } catch (error) {
     failed(res, 'Failed to check profile', error);
   }
@@ -274,7 +276,13 @@ export const checkMobileProfile = async (req: AuthRequest, res: ExpressResponse)
 // ─────────────────────────────────────────
 export const register = async (req: Request, res: ExpressResponse): Promise<void> => {
   try {
-    const { firstName, lastName, age, gender } = req.body;
+    const { age, gender } = req.body;
+    const firstName = typeof req.body.firstName === 'string' ? req.body.firstName.trim() : '';
+    const lastName = typeof req.body.lastName === 'string' ? req.body.lastName.trim() : '';
+    if (!firstName || !lastName) {
+      res.status(400).json({ message: 'firstName and lastName are required' });
+      return;
+    }
     const rawPhone = req.body.phoneNumber ?? req.body.phone;
     const email = typeof req.body.email === 'string' && req.body.email.trim()
       ? req.body.email.trim().toLowerCase()
@@ -294,8 +302,22 @@ export const register = async (req: Request, res: ExpressResponse): Promise<void
 
     // Mobile OTP users complete their existing profile by calling this with
     // the accessToken from verify-otp; otherwise a new patient is created.
+    // A sent-but-invalid token must fail rather than fall through to creating
+    // a second, phone-less user while the OTP user stays profileCompleted:false.
     const authedUserId = bearerUserId(req);
+    if (authedUserId === null) {
+      res.status(401).json({ message: 'Invalid or expired access token' });
+      return;
+    }
     const currentUser = authedUserId ? await User.findById(authedUserId) : null;
+    if (authedUserId && !currentUser) {
+      res.status(401).json({ message: 'Invalid or expired access token' });
+      return;
+    }
+    if (currentUser && !currentUser.isActive) {
+      res.status(403).json({ message: 'User account is inactive' });
+      return;
+    }
 
     if (!currentUser && !phone && !email) {
       res.status(400).json({ message: 'phone or email is required to register' });
@@ -319,8 +341,8 @@ export const register = async (req: Request, res: ExpressResponse): Promise<void
     }
 
     const profile = {
-      firstName: firstName ?? null,
-      lastName: lastName ?? null,
+      firstName,
+      lastName,
       age: age ?? null,
       gender: gender ?? null,
       profileCompleted: true,
