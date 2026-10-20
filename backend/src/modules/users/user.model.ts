@@ -12,6 +12,11 @@ export const USER_ROLES = [
 
 export type UserRole = typeof USER_ROLES[number];
 
+// Roles only an existing admin may grant. Everything else can be chosen by the
+// user at mobile OTP sign-in, so new roles are self-service unless added here.
+export const ADMIN_ONLY_ROLES: readonly UserRole[] = ['PLATFORM_ADMIN', 'ORG_ADMIN'];
+export const SELF_SERVICE_ROLES = USER_ROLES.filter((role) => !ADMIN_ONLY_ROLES.includes(role));
+
 export interface IUser {
   email?: string;
   passwordHash?: string;

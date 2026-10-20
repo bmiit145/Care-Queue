@@ -104,9 +104,13 @@ router.post('/login', login);
  *             required: [phoneNumber]
  *             properties:
  *               phoneNumber: { type: string, example: "+14155552671" }
+ *               role:
+ *                 type: string
+ *                 example: "PATIENT"
+ *                 description: "Role to sign in as. Defaults to PATIENT. Any role except PLATFORM_ADMIN and ORG_ADMIN."
  *     responses:
  *       200: { description: OTP sent successfully }
- *       400: { description: Invalid phone number }
+ *       400: { description: Invalid phone number or role }
  *       500: { description: WhatsApp delivery failed }
  */
 router.post('/mobile/request-otp', requestOtp);
@@ -115,7 +119,12 @@ router.post('/mobile/request-otp', requestOtp);
  * @swagger
  * /auth/mobile/verify-otp:
  *   post:
- *     summary: Verify a mobile OTP and create or authenticate the patient
+ *     summary: Verify a mobile OTP and create or authenticate the user
+ *     description: |
+ *       Signs in as the role sent to request-otp. `role` here is optional; if
+ *       sent it must match. New users are created with that role, and existing
+ *       self-service users are switched to it. Admin accounts and users attached
+ *       to an organization keep their admin-assigned role (403 on mismatch).
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -127,10 +136,12 @@ router.post('/mobile/request-otp', requestOtp);
  *             properties:
  *               phoneNumber: { type: string, example: "+14155552671" }
  *               otp: { type: string, example: "123456" }
+ *               role: { type: string, example: "PATIENT", description: "Optional; must match the role sent to request-otp" }
  *     responses:
  *       200: { description: OTP verified with access and refresh tokens }
- *       400: { description: Invalid request }
+ *       400: { description: Invalid request, invalid role, or role differs from request-otp }
  *       401: { description: Invalid or expired OTP }
+ *       403: { description: Account inactive, or its admin-assigned role cannot be changed }
  */
 router.post('/mobile/verify-otp', verifyOtp);
 

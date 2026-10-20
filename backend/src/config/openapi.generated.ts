@@ -2113,6 +2113,11 @@ export const openapiDocument: OpenApiDocument = {
                   "phoneNumber": {
                     "type": "string",
                     "example": "+14155552671"
+                  },
+                  "role": {
+                    "type": "string",
+                    "example": "PATIENT",
+                    "description": "Role to sign in as. Defaults to PATIENT. Any role except PLATFORM_ADMIN and ORG_ADMIN."
                   }
                 }
               }
@@ -2124,7 +2129,7 @@ export const openapiDocument: OpenApiDocument = {
             "description": "OTP sent successfully"
           },
           "400": {
-            "description": "Invalid phone number"
+            "description": "Invalid phone number or role"
           },
           "500": {
             "description": "WhatsApp delivery failed"
@@ -2134,7 +2139,8 @@ export const openapiDocument: OpenApiDocument = {
     },
     "/auth/mobile/verify-otp": {
       "post": {
-        "summary": "Verify a mobile OTP and create or authenticate the patient",
+        "summary": "Verify a mobile OTP and create or authenticate the user",
+        "description": "Signs in as the role sent to request-otp. `role` here is optional; if\nsent it must match. New users are created with that role, and existing\nself-service users are switched to it. Admin accounts and users attached\nto an organization keep their admin-assigned role (403 on mismatch).\n",
         "tags": [
           "Auth"
         ],
@@ -2156,6 +2162,11 @@ export const openapiDocument: OpenApiDocument = {
                   "otp": {
                     "type": "string",
                     "example": "123456"
+                  },
+                  "role": {
+                    "type": "string",
+                    "example": "PATIENT",
+                    "description": "Optional; must match the role sent to request-otp"
                   }
                 }
               }
@@ -2167,10 +2178,16 @@ export const openapiDocument: OpenApiDocument = {
             "description": "OTP verified with access and refresh tokens"
           },
           "400": {
-            "description": "Invalid request"
+            "description": "Invalid request",
+            "invalid role": null,
+            "or role differs from request-otp": null
           },
           "401": {
             "description": "Invalid or expired OTP"
+          },
+          "403": {
+            "description": "Account inactive",
+            "or its admin-assigned role cannot be changed": null
           }
         }
       }

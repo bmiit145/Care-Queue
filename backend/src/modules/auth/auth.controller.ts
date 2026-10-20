@@ -2,7 +2,7 @@ import { Request, Response as ExpressResponse } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createHash, randomInt } from 'node:crypto';
-import { User, UserRole } from '../users/user.model';
+import { ADMIN_ONLY_ROLES, SELF_SERVICE_ROLES, User, UserRole } from '../users/user.model';
 import { env } from '../../config/env';
 import type { AuthRequest } from '../../shared/middlewares/auth.middleware';
 import { failed } from '../../shared/http/respond';
@@ -30,6 +30,16 @@ const normalizePhone = (value: unknown): string | null => {
 };
 
 const hashOtp = (otp: string): string => createHash('sha256').update(otp).digest('hex');
+
+// Mobile sign-in role: absent → PATIENT, otherwise must be self-service (never an admin role).
+const parseSelfServiceRole = (value: unknown): UserRole | null => {
+  if (value === undefined || value === null || value === '') return 'PATIENT';
+  if (typeof value !== 'string') return null;
+  const role = value.trim().toUpperCase();
+  return (SELF_SERVICE_ROLES as readonly string[]).includes(role) ? (role as UserRole) : null;
+};
+
+const invalidRoleMessage = `role must be one of: ${SELF_SERVICE_ROLES.join(', ')}`;
 
 /**
  * Generate a signed JWT embedding id, role, and organizationId.
@@ -148,11 +158,16 @@ export const requestOtp = async (req: Request, res: ExpressResponse): Promise<vo
     res.status(400).json({ message: 'phoneNumber must be a 10-digit Indian number (e.g. 9898038051) or international format (e.g. +919898038051)' });
     return;
   }
+  const role = parseSelfServiceRole(req.body.role);
+  if (!role) {
+    res.status(400).json({ message: invalidRoleMessage });
+    return;
+  }
 
   try {
     const otp = env.otpDeliveryEnabled ? randomInt(100000, 1000000).toString() : '123456';
     await OtpChallenge.deleteMany({ phone });
-    await OtpChallenge.create({ phone, codeHash: hashOtp(otp), expiresAt: new Date(Date.now() + OTP_TTL_MS) });
+    await OtpChallenge.create({ phone, role, codeHash: hashOtp(otp), expiresAt: new Date(Date.now() + OTP_TTL_MS) });
     if (env.otpDeliveryEnabled) {
       await sendWhatsAppOtp(phone, otp);
     }
@@ -179,6 +194,13 @@ export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<voi
     res.status(400).json({ message: 'phoneNumber and a 6-digit otp are required' });
     return;
   }
+  // Optional here: when omitted, the role chosen at request-otp is used.
+  const roleSent = req.body.role !== undefined && req.body.role !== null && req.body.role !== '';
+  const requestedRole = roleSent ? parseSelfServiceRole(req.body.role) : undefined;
+  if (requestedRole === null) {
+    res.status(400).json({ message: invalidRoleMessage });
+    return;
+  }
 
   try {
     const challenge = await OtpChallenge.findOne({ phone });
@@ -191,6 +213,14 @@ export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<voi
     if (hashOtp(otp) !== challenge.codeHash) {
       await challenge.save();
       res.status(401).json({ message: 'Invalid OTP' });
+      return;
+    }
+
+    // The role is bound to the OTP when it is requested; verify must not switch it.
+    const role = challenge.role ?? 'PATIENT';
+    if (requestedRole && requestedRole !== role) {
+      await challenge.save();
+      res.status(400).json({ message: 'role does not match the role the OTP was requested for' });
       return;
     }
 
@@ -208,7 +238,7 @@ export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<voi
           lastName: null,
           age: null,
           gender: null,
-          role: 'PATIENT',
+          role,
           profileCompleted: false,
           isActive: true,
         },
@@ -226,6 +256,18 @@ export const verifyOtp = async (req: Request, res: ExpressResponse): Promise<voi
     if (!user.isActive) {
       res.status(403).json({ message: 'User account is inactive' });
       return;
+    }
+
+    // Existing self-service users sign in as the role they chose. Admin accounts
+    // and users attached to an organization have admin-managed roles, so a
+    // phone OTP must not change them (e.g. PRACTITIONER → RECEPTIONIST in-org).
+    if (user.role !== role) {
+      if (ADMIN_ONLY_ROLES.includes(user.role) || user.organizationId) {
+        res.status(403).json({ message: `This phone number is registered as ${user.role}; its role cannot be changed here` });
+        return;
+      }
+      user.role = role;
+      await user.save();
     }
 
     res.status(200).json(authResponse(user));
